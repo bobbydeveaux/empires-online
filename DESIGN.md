@@ -51,13 +51,13 @@ Player
 
 |id|username|password|email|email_verification|spawned-country-id|
 |---|-------|--------|-----|-----------------------|------------------|
-| 1 | Roger | 12345  | roger@gmail.com | abcdefg   | 1                |
+| 1 | Roger | 12345  | roger@gmail.com | abcdefg   | 111              |
 
 Spawned Country
 
 | id  | country_id  | game_id  | gold | bonds  | terrirtories | goods  | people  | banks  | supporters | revolters |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 1  | 4  | 1  |  5 | 1  |  4 | 2  | 3  | 0  | 0 | 0
+| 111  | 4  | 1  |  5 | 1  |  4 | 2  | 3  | 0  | 0 | 0
 
 Game
 
@@ -66,9 +66,9 @@ Game
 | 1 | 5 | 5  |  1 | 1 | 2019-12-30 22:17:10
 
 
-## EndPoints
 
-Develop pseudo-logic:
+
+## Develop pseudo-logic:
 
 ```
 luxuries=MIN(people,goods)
@@ -111,6 +111,11 @@ set supporters=supporters+luxuries // supporters is now 2
 and
 goods=MIN(territories,people) // goods is now 3
 ```
+
+
+## EndPoints
+
+POST api.empiresonline.com/country/111/develop
 
 
 
