@@ -4,7 +4,6 @@ import {
   Country,
   Game,
   GameState,
-  SpawnedCountry,
   DevelopmentResult,
   ActionResult,
   GameAction,
