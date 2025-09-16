@@ -1,0 +1,37 @@
+# Backend dependencies
+backend/venv/
+backend/__pycache__/
+backend/app/__pycache__/
+backend/.pytest_cache/
+backend/app/tests/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+.venv
+
+# Frontend dependencies
+frontend/node_modules/
+frontend/build/
+frontend/.eslintcache
+
+# Database
+*.db
+*.sqlite
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Docker
+docker-compose.override.yml
