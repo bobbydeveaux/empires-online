@@ -11,47 +11,224 @@ Empires is a turn-based strategy game where players:
 - Make strategic banking and bond decisions
 - Compete over multiple rounds for the highest score
 
-## Key Features
+## Architecture
 
-- **Multiplayer Support**: Real-time games with multiple players
-- **Strategic Depth**: Complex economic decisions with trade-offs
-- **Political Management**: Balance stability vs growth
-- **Historical Themes**: Play as classic empires like France, England, Spain
-- **Score-based Victory**: Multiple paths to victory through different strategies
+This implementation consists of:
+- **Backend**: FastAPI-based REST API with PostgreSQL database
+- **Frontend**: React TypeScript SPA with real-time updates
+- **Database**: PostgreSQL with SQLAlchemy ORM
+- **Deployment**: Docker containers with docker-compose
 
 ## Quick Start
 
-1. **Create Account**: Register and verify email
-2. **Join/Create Game**: Enter game lobby and select your empire
-3. **Play Rounds**: Make development decisions each round
-4. **Strategic Actions**: Optionally buy bonds, build banks, trade resources
-5. **Win**: Accumulate the most victory points after all rounds
+### Using Docker (Recommended)
 
-## Game Mechanics
+1. **Clone the repository**
+```bash
+git clone https://github.com/bobbydeveaux/empires-online.git
+cd empires-online
+```
 
-Each round consists of:
-- **Development Phase**: Automatic calculation of luxuries, industries, and stability
-- **Action Phase**: Optional strategic actions (buying bonds, building infrastructure)
-- **Resolution**: State updates and preparation for next round
+2. **Start the application**
+```bash
+docker-compose up -d
+```
 
-Victory is determined by:
-- Gold accumulated
-- Territories controlled  
-- Political stability (supporters vs revolters)
-- Economic infrastructure (bonds, banks)
+3. **Access the game**
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- API Documentation: http://localhost:8000/docs
 
-## Technical Stack
+4. **Test login**
+- Username: `testuser`
+- Password: `testpass123`
 
-- **Backend**: RESTful API with WebSocket support
-- **Database**: Relational database for game state persistence
-- **Frontend**: Modern SPA with real-time updates
-- **Authentication**: Secure user management system
+### Local Development
+
+#### Backend Setup
+
+1. **Install Python dependencies**
+```bash
+cd backend
+pip install -r requirements.txt
+```
+
+2. **Set up PostgreSQL database**
+```bash
+# Start PostgreSQL (e.g., with Docker)
+docker run -d --name empires-db -e POSTGRES_DB=empires_db -e POSTGRES_USER=empires -e POSTGRES_PASSWORD=empires -p 5432:5432 postgres:15
+```
+
+3. **Initialize database**
+```bash
+python app/init_db.py
+```
+
+4. **Start the backend server**
+```bash
+uvicorn app.main:app --reload
+```
+
+#### Frontend Setup
+
+1. **Install Node.js dependencies**
+```bash
+cd frontend
+npm install
+```
+
+2. **Start the development server**
+```bash
+npm start
+```
+
+## Game Rules
+
+### Core Game Loop
+1. **Development Phase** (automatic): Calculate luxuries, industries, unemployment, banking costs
+2. **Action Phase** (optional): Players can buy bonds, build banks, trade resources
+3. **Round End**: Update state, check stability, prepare for next round
+4. **Game End**: Calculate victory points after all rounds
+
+### Development Algorithm
+The heart of the game's economic system:
+```
+luxuries = MIN(people, goods)
+available_workers = people - luxuries
+industries = MIN(territories, available_workers)
+unemployed = people - luxuries - industries
+
+if unemployed > 1:
+    revolters += 1
+
+gold -= banks  // Bank maintenance cost
+revolters += (bonds - banks)  // Banking stability effect
+supporters += luxuries
+gold += industries  // Industrial income
+goods = MIN(territories, people)  // Next round's goods
+```
+
+### Victory Points
+```
+Base Score = gold * 1
+Territory Bonus = territories * 2
+Stability Bonus = MAX(0, supporters - revolters) * 1
+Economic Bonus = bonds * 1
+Instability Penalty = If revolters > supporters, multiply total by 0.5
+```
+
+## API Endpoints
+
+### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/token` - Login and get access token
+- `GET /api/auth/me` - Get current user info
+
+### Games
+- `POST /api/games/` - Create new game
+- `GET /api/games/` - List available games
+- `POST /api/games/{id}/join` - Join game with country
+- `POST /api/games/{id}/start` - Start game (creator only)
+- `GET /api/games/{id}` - Get game state
+- `POST /api/games/{id}/countries/{country_id}/develop` - Execute development
+- `POST /api/games/{id}/countries/{country_id}/actions` - Perform actions
+- `GET /api/games/{id}/leaderboard` - Get current standings
+
+### Players
+- `GET /api/players/countries` - List available countries
+- `GET /api/players/me` - Get current player info
+
+## Testing
+
+### Backend Tests
+```bash
+cd backend
+python -m pytest app/tests/ -v
+```
+
+### Frontend Tests
+```bash
+cd frontend
+npm test
+```
+
+### Full CI/CD Testing
+```bash
+docker-compose build
+docker-compose up -d
+# Application should be available at http://localhost:3000
+docker-compose down
+```
+
+## Development Features
+
+### Phase 1 - Core Game (✅ Complete)
+- [x] Set up database schema with all required tables
+- [x] Implement user authentication and registration
+- [x] Create game lobby for creating/joining games
+- [x] Implement core development algorithm exactly as specified
+- [x] Build basic web interface for gameplay
+- [x] Add real-time game state updates
+- [x] Implement victory point calculation
+- [x] Full CI/CD pipeline with GitHub Actions
+- [x] Docker containers and docker-compose setup
+- [x] Comprehensive unit tests for game logic
+
+### Phase 2 - Enhanced Features (🔄 Next)
+- [ ] Add WebSocket support for real-time updates
+- [ ] Implement trading between players
+- [ ] Add game history and statistics
+- [ ] Create comprehensive API documentation
+- [ ] Add input validation and error handling
+- [ ] Implement game spectator mode
+
+### Phase 3 - Polish (📋 Future)
+- [ ] Add AI opponents for single-player practice
+- [ ] Create tournament system
+- [ ] Add game variants (short/long games)
+- [ ] Implement advanced rules (diplomacy, events)
+- [ ] Mobile-responsive design
+- [ ] Performance optimization
+
+## Technology Stack
+
+- **Backend**: Python 3.11+, FastAPI, SQLAlchemy, PostgreSQL
+- **Frontend**: React 18, TypeScript, Axios
+- **Database**: PostgreSQL 15
+- **Testing**: Pytest (backend), Jest (frontend)
+- **Deployment**: Docker, Docker Compose
+- **CI/CD**: GitHub Actions
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests to ensure everything works
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+## Performance Targets
+
+- Support 100+ concurrent games
+- Real-time updates with <100ms latency
+- Handle 1000+ registered users
+- Database queries optimized for game state reads
+
+## Security Features
+
+- JWT-based authentication
+- Password hashing with bcrypt
+- SQL injection prevention with SQLAlchemy ORM
+- CORS protection
+- Input validation with Pydantic
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Documentation
 
 - See [DESIGN.md](DESIGN.md) for complete game rules, API specifications, and implementation details
-- Includes full copilot instructions for building the online version
-
-## Development Status
-
-This project is in development. The design document contains comprehensive specifications for implementing the complete online game.
+- See [COPILOT_INSTRUCTIONS.md](COPILOT_INSTRUCTIONS.md) for development guidelines and architecture decisions
