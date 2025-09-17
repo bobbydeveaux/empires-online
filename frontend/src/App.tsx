@@ -22,6 +22,20 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
+const HomePage: React.FC = () => {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return <div className="loading">Loading...</div>;
+  }
+  
+  if (user) {
+    return <Navigate to="/lobby" replace />;
+  }
+  
+  return <Navigate to="/login" replace />;
+};
+
 const App: React.FC = () => {
   return (
     <AuthProvider>
@@ -42,7 +56,7 @@ const App: React.FC = () => {
                   <Game />
                 </ProtectedRoute>
               } />
-              <Route path="/" element={<Navigate to="/lobby" />} />
+              <Route path="/" element={<HomePage />} />
             </Routes>
           </main>
         </div>
