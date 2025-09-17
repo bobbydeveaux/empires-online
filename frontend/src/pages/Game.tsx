@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { GameState, SpawnedCountryWithDetails, GameAction } from '../types';
 import { gamesAPI } from '../services/api';
@@ -12,16 +12,7 @@ const Game: React.FC = () => {
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
-    if (gameId) {
-      loadGameState();
-      // Poll for updates every 5 seconds
-      const interval = setInterval(loadGameState, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [gameId]);
-
-  const loadGameState = async () => {
+  const loadGameState = useCallback(async () => {
     try {
       if (!gameId) return;
       const state = await gamesAPI.getGameState(Number(gameId));
@@ -32,7 +23,16 @@ const Game: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [gameId]);
+
+  useEffect(() => {
+    if (gameId) {
+      loadGameState();
+      // Poll for updates every 5 seconds
+      const interval = setInterval(loadGameState, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [gameId, loadGameState]);
 
   const getCurrentPlayer = (): SpawnedCountryWithDetails | null => {
     if (!gameState || !user) return null;
