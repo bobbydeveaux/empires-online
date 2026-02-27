@@ -1,0 +1,112 @@
+Epics:
+- Features:
+  - Sprint: 1
+    dependencies: null
+    description: Implement WebSocket connection manager with room-based broadcasting
+      per game, FastAPI WebSocket endpoint with JWT authentication, and PostgreSQL
+      NOTIFY/LISTEN for cross-process event fanout. Includes Nginx WebSocket proxy
+      configuration.
+    estimatedComplexity: high
+    files:
+    - backend/app/services/ws_manager.py
+    - backend/app/api/routes/ws.py
+    - backend/app/main.py
+    - frontend/nginx.conf
+    id: empires-online-feat-websocket-backend
+    name: WebSocket Backend Infrastructure
+    project: backend
+    type: enabler
+  - Sprint: 3
+    dependencies:
+    - empires-online-feat-websocket-backend
+    description: Create useGameWebSocket hook replacing 5-second polling with real-time
+      push updates. Implement exponential backoff reconnection (1s, 2s, 4s, max 30s)
+      and automatic state sync on reconnect. Wire hook into Game and GameLobby pages.
+    estimatedComplexity: medium
+    files:
+    - frontend/src/hooks/useGameWebSocket.ts
+    - frontend/src/pages/Game.tsx
+    - frontend/src/pages/GameLobby.tsx
+    - frontend/src/services/api.ts
+    - frontend/src/types/index.ts
+    id: empires-online-feat-websocket-frontend
+    name: WebSocket Frontend Integration
+    project: frontend
+    type: feature
+  ID: empires-online-epic-realtime
+  Name: Real-Time Communication
+- Features:
+  - Sprint: 2
+    dependencies: null
+    description: Replace create_all() with Alembic migration framework. Create initial
+      migration adding stability_checked column to games table. Configure auto-run
+      migrations on application startup.
+    estimatedComplexity: low
+    files:
+    - backend/alembic.ini
+    - backend/alembic/env.py
+    - backend/alembic/versions/001_add_stability_checked.py
+    - backend/app/models/models.py
+    - backend/app/init_db.py
+    id: empires-online-feat-alembic-setup
+    name: Alembic Migration Setup
+    project: backend
+    type: enabler
+  - Sprint: 4
+    dependencies:
+    - empires-online-feat-alembic-setup
+    description: 'Implement recruit_people action (cost 2 gold, +1 person) and acquire_territory
+      action (cost 3 gold, +1 territory) with server-side validation. Add stability
+      check: if revolters > supporters at round end, deduct gold equal to the difference
+      (floor 0). Implement automatic phase transitions (development→actions→next round)
+      when all players complete. Add round summary endpoint returning per-player changes.'
+    estimatedComplexity: medium
+    files:
+    - backend/app/services/game_logic.py
+    - backend/app/schemas/schemas.py
+    - backend/app/api/routes/games.py
+    id: empires-online-feat-actions-stability
+    name: New Actions, Stability Check & Phase Transitions
+    project: backend
+    type: feature
+  ID: empires-online-epic-game-logic
+  Name: Game Logic Completion
+- Features:
+  - Sprint: 5
+    dependencies:
+    - empires-online-feat-websocket-frontend
+    - empires-online-feat-actions-stability
+    description: Add CSS media queries for mobile-responsive layout at ≤768px width
+      with no horizontal scrolling at 375px. Implement toast notification system for
+      action confirmations, errors, and resource changes. Add round summary display
+      showing per-player changes between rounds.
+    estimatedComplexity: medium
+    files:
+    - frontend/src/components/Toast.tsx
+    - frontend/src/pages/Game.tsx
+    - frontend/src/App.css
+    - frontend/src/App.tsx
+    id: empires-online-feat-ui-polish
+    name: Mobile Responsive UI & Toast Notifications
+    project: frontend
+    type: feature
+  - Sprint: 6
+    dependencies:
+    - empires-online-feat-websocket-backend
+    - empires-online-feat-actions-stability
+    description: Add unit tests for recruit_people, acquire_territory, stability check,
+      and WebSocket broadcasting. Add integration tests for all API endpoints including
+      WebSocket connect/disconnect, round summary, and auto phase transitions. Target
+      ≥80% backend test coverage.
+    estimatedComplexity: medium
+    files:
+    - backend/app/tests/test_game_logic.py
+    - backend/app/tests/test_websocket.py
+    - backend/app/tests/test_integration.py
+    id: empires-online-feat-backend-tests
+    name: Backend Integration Tests & Coverage
+    project: backend
+    type: feature
+  ID: empires-online-epic-ux-quality
+  Name: UX Polish & Quality
+Version: v1alpha1

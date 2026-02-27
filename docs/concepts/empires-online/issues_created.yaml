@@ -1,0 +1,21 @@
+GeneratedAt: "2026-02-27T20:50:56Z"
+Issues:
+- IssueNumber: 15
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/15
+  TaskID: task-empires-online-feat-websocket-backend-1
+- IssueNumber: 16
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/16
+  TaskID: task-empires-online-feat-websocket-backend-2
+- IssueNumber: 17
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/17
+  TaskID: task-empires-online-feat-websocket-backend-3
+- IssueNumber: 18
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/18
+  TaskID: task-empires-online-feat-alembic-setup-1
+- IssueNumber: 19
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/19
+  TaskID: task-empires-online-feat-alembic-setup-2
+- IssueNumber: 20
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/20
+  TaskID: task-empires-online-feat-alembic-setup-3
+Plan: empires-online-plan

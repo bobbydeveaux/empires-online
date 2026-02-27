@@ -1,0 +1,117 @@
+GeneratedAt: "2026-02-27T20:50:37Z"
+Plan: empires-online-plan
+Sprints:
+- Features:
+  - FeatureID: empires-online-feat-websocket-backend
+    FeatureTitle: WebSocket Backend Infrastructure
+    Tasks:
+    - AcceptanceCriteria:
+      - ConnectionManager supports connect, disconnect, join_room, leave_room, and
+        broadcast_to_room operations
+      - PostgreSQL NOTIFY/LISTEN listener runs on startup and fans out events to local
+        WebSocket connections
+      - Unit tests verify room-based message routing and connection lifecycle
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Build the ConnectionManager class in ws_manager.py that tracks
+        active WebSocket connections per game room. Implement connect/disconnect lifecycle,
+        room join/leave, and broadcast-to-room methods. Integrate PostgreSQL NOTIFY/LISTEN
+        for cross-process event fanout so multiple worker processes can relay messages.
+      EstimatedEffort: M
+      Files:
+      - backend/app/services/ws_manager.py
+      ID: task-empires-online-feat-websocket-backend-1
+      Title: Implement WebSocket connection manager with room-based broadcasting
+    - AcceptanceCriteria:
+      - WebSocket endpoint at /ws/{game_id} accepts connections with valid JWT and
+        rejects invalid tokens with appropriate close codes
+      - Authenticated connections are registered in the correct game room and receive
+        broadcast messages
+      - Integration test confirms end-to-end connect, authenticate, receive broadcast,
+        and disconnect flow
+      AgentType: backend-engineer
+      Dependencies:
+      - task-empires-online-feat-websocket-backend-1
+      Description: Create the WebSocket route in ws.py that accepts connections, validates
+        JWT tokens from query params or headers, associates the connection with a
+        game room via the ConnectionManager, and handles incoming/outgoing message
+        dispatch. Register the route in main.py.
+      EstimatedEffort: M
+      Files:
+      - backend/app/api/routes/ws.py
+      - backend/app/main.py
+      ID: task-empires-online-feat-websocket-backend-2
+      Title: Implement FastAPI WebSocket endpoint with JWT authentication
+    - AcceptanceCriteria:
+      - Nginx proxies WebSocket connections at the /ws/ path with correct Upgrade
+        and Connection headers
+      - WebSocket connections remain stable through Nginx with appropriate timeout
+        settings
+      - Existing HTTP API routes are unaffected by the configuration change
+      AgentType: devops-engineer
+      Dependencies: []
+      Description: Update the Nginx configuration to proxy WebSocket upgrade requests
+        to the FastAPI backend. Set appropriate headers (Upgrade, Connection), configure
+        timeouts for long-lived connections, and ensure regular HTTP routes continue
+        to work alongside WebSocket routes.
+      EstimatedEffort: S
+      Files:
+      - frontend/nginx.conf
+      ID: task-empires-online-feat-websocket-backend-3
+      Title: Configure Nginx WebSocket proxy
+  Sprint: 1
+- Features:
+  - FeatureID: empires-online-feat-alembic-setup
+    FeatureTitle: Alembic Migration Setup
+    Tasks:
+    - AcceptanceCriteria:
+      - alembic.ini exists at backend/ root with correct script_location and sqlalchemy.url
+        placeholder
+      - alembic/env.py imports Base.metadata and can connect to the database
+      - Running 'alembic current' from backend/ succeeds without errors
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Create the Alembic configuration and environment files from scratch.
+        Add alembic.ini at backend root pointing to the alembic/ directory, create
+        alembic/env.py that imports Base metadata from app.core.database and all models,
+        and add the script.mako template. Ensure env.py reads DATABASE_URL from app.core.config.settings.
+      EstimatedEffort: S
+      Files:
+      - backend/alembic.ini
+      - backend/alembic/env.py
+      ID: task-empires-online-feat-alembic-setup-1
+      Title: Configure Alembic migration framework
+    - AcceptanceCriteria:
+      - Game model has stability_checked = Column(Boolean, default=False) field
+      - Migration file 001_add_stability_checked.py exists with correct upgrade (add_column)
+        and downgrade (drop_column)
+      - Running 'alembic upgrade head' applies the migration successfully
+      AgentType: backend-engineer
+      Dependencies:
+      - task-empires-online-feat-alembic-setup-1
+      Description: Add the stability_checked Boolean column (default False) to the
+        Game model in models.py. Generate the first Alembic migration file (001_add_stability_checked.py)
+        that adds this column to the games table with upgrade and downgrade functions.
+      EstimatedEffort: S
+      Files:
+      - backend/app/models/models.py
+      - backend/alembic/versions/001_add_stability_checked.py
+      ID: task-empires-online-feat-alembic-setup-2
+      Title: Add stability_checked column and create initial migration
+    - AcceptanceCriteria:
+      - init_db.py no longer calls Base.metadata.create_all()
+      - init_db() runs alembic upgrade head programmatically before seeding data
+      - Application starts cleanly with migrations applied and seed data populated
+      AgentType: backend-engineer
+      Dependencies:
+      - task-empires-online-feat-alembic-setup-2
+      Description: Modify init_db.py to replace Base.metadata.create_all() with programmatic
+        Alembic upgrade-to-head on application startup. Use alembic.command.upgrade
+        with an alembic.config.Config pointing to alembic.ini. Keep the existing seed
+        data logic intact after migrations run.
+      EstimatedEffort: S
+      Files:
+      - backend/app/init_db.py
+      ID: task-empires-online-feat-alembic-setup-3
+      Title: Replace create_all with auto-run Alembic migrations on startup
+  Sprint: 2

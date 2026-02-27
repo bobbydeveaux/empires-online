@@ -1,0 +1,61 @@
+# Project Timeline
+
+metadata:
+  generated: 2026-02-27T20:49:39Z
+  totalSprints: 6
+  totalDuration: 47 days
+
+sprints:
+  - number: 1
+    startDate: 2026-02-27
+    endDate: 2026-03-06
+    duration: 7 days
+    features:
+      - id: empires-online-feat-websocket-backend
+        name: WebSocket Backend Infrastructure
+        type: enabler
+  - number: 3
+    startDate: 2026-03-07
+    endDate: 2026-03-14
+    duration: 7 days
+    features:
+      - id: empires-online-feat-websocket-frontend
+        name: WebSocket Frontend Integration
+        type: feature
+  - number: 2
+    startDate: 2026-03-15
+    endDate: 2026-03-22
+    duration: 7 days
+    features:
+      - id: empires-online-feat-alembic-setup
+        name: Alembic Migration Setup
+        type: enabler
+  - number: 4
+    startDate: 2026-03-23
+    endDate: 2026-03-30
+    duration: 7 days
+    features:
+      - id: empires-online-feat-actions-stability
+        name: New Actions, Stability Check & Phase Transitions
+        type: feature
+  - number: 5
+    startDate: 2026-03-31
+    endDate: 2026-04-07
+    duration: 7 days
+    features:
+      - id: empires-online-feat-ui-polish
+        name: Mobile Responsive UI & Toast Notifications
+        type: feature
+  - number: 6
+    startDate: 2026-04-08
+    endDate: 2026-04-15
+    duration: 7 days
+    features:
+      - id: empires-online-feat-backend-tests
+        name: Backend Integration Tests & Coverage
+        type: feature
+
+criticalPath:
+  - empires-online-feat-websocket-backend
+  - empires-online-feat-websocket-frontend
+  - empires-online-feat-ui-polish
