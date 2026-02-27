@@ -1,6 +1,7 @@
 Epics:
-- features:
-  - dependencies: []
+- Features:
+  - Sprint: 1
+    dependencies: null
     description: Implement WebSocket connection manager with room-based broadcasting
       per game, FastAPI WebSocket endpoint with JWT authentication, and PostgreSQL
       NOTIFY/LISTEN for cross-process event fanout. Includes Nginx WebSocket proxy
@@ -15,7 +16,8 @@ Epics:
     name: WebSocket Backend Infrastructure
     project: backend
     type: enabler
-  - dependencies:
+  - Sprint: 3
+    dependencies:
     - empires-online-feat-websocket-backend
     description: Create useGameWebSocket hook replacing 5-second polling with real-time
       push updates. Implement exponential backoff reconnection (1s, 2s, 4s, max 30s)
@@ -31,10 +33,11 @@ Epics:
     name: WebSocket Frontend Integration
     project: frontend
     type: feature
-  id: empires-online-epic-realtime
-  name: Real-Time Communication
-- features:
-  - dependencies: []
+  ID: empires-online-epic-realtime
+  Name: Real-Time Communication
+- Features:
+  - Sprint: 2
+    dependencies: null
     description: Replace create_all() with Alembic migration framework. Create initial
       migration adding stability_checked column to games table. Configure auto-run
       migrations on application startup.
@@ -49,7 +52,8 @@ Epics:
     name: Alembic Migration Setup
     project: backend
     type: enabler
-  - dependencies:
+  - Sprint: 4
+    dependencies:
     - empires-online-feat-alembic-setup
     description: 'Implement recruit_people action (cost 2 gold, +1 person) and acquire_territory
       action (cost 3 gold, +1 territory) with server-side validation. Add stability
@@ -65,10 +69,11 @@ Epics:
     name: New Actions, Stability Check & Phase Transitions
     project: backend
     type: feature
-  id: empires-online-epic-game-logic
-  name: Game Logic Completion
-- features:
-  - dependencies:
+  ID: empires-online-epic-game-logic
+  Name: Game Logic Completion
+- Features:
+  - Sprint: 5
+    dependencies:
     - empires-online-feat-websocket-frontend
     - empires-online-feat-actions-stability
     description: Add CSS media queries for mobile-responsive layout at ≤768px width
@@ -85,7 +90,8 @@ Epics:
     name: Mobile Responsive UI & Toast Notifications
     project: frontend
     type: feature
-  - dependencies:
+  - Sprint: 6
+    dependencies:
     - empires-online-feat-websocket-backend
     - empires-online-feat-actions-stability
     description: Add unit tests for recruit_people, acquire_territory, stability check,
@@ -101,6 +107,6 @@ Epics:
     name: Backend Integration Tests & Coverage
     project: backend
     type: feature
-  id: empires-online-epic-ux-quality
-  name: UX Polish & Quality
+  ID: empires-online-epic-ux-quality
+  Name: UX Polish & Quality
 Version: v1alpha1
