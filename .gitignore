@@ -44,3 +44,6 @@ docker-compose.override.yml
 .worktrees/
 .codex/
 AGENTS.md
+
+# Claude Code worker state files
+.claude-output.json
