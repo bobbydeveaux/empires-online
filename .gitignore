@@ -36,3 +36,11 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
+# Claude Code workspace files
+.claude/
+.coo/
+*.claude-session
+*.claude-checkpoint
+.worktrees/
+.codex/
+AGENTS.md
