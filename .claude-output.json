@@ -1,0 +1,22 @@
+{
+  "prTitle": "feat: implement WebSocket connection manager with room-based broadcasting",
+  "prBody": "## Summary\n\nImplements the `ConnectionManager` class in `backend/app/services/ws_manager.py` that provides real-time WebSocket communication infrastructure for Empires Online.\n\n### Features\n- **Connection lifecycle management**: `connect()` and `disconnect()` methods with automatic cleanup\n- **Room-based organization**: `join_room()` and `leave_room()` to organize connections by game ID\n- **Targeted broadcasting**: `broadcast_to_room()` sends messages only to connections in a specific game room, with automatic stale connection cleanup\n- **Cross-process fanout**: PostgreSQL NOTIFY/LISTEN integration via `start_pg_listener()` / `stop_pg_listener()` enables message relay across multiple worker processes using the `game_events` channel\n- **Publishing utility**: Static `pg_notify()` method for other services to publish events\n- **Singleton instance**: Module-level `manager` instance for use across the application\n\n### Tests\n28 unit tests covering:\n- Connection lifecycle (connect, disconnect, cleanup)\n- Room management (join, leave, multiple rooms, error cases)\n- Broadcast targeting and stale connection cleanup\n- PostgreSQL notification handling and listener management\n\n### Documentation\n- Updated `README.md` with WebSocket architecture info and feature checklist\n- Created `docs/websocket-manager.md` with API reference, architecture diagram, and usage examples\n\nCloses #15",
+  "testsPass": true,
+  "filesChanged": [
+    "backend/app/services/ws_manager.py",
+    "backend/app/tests/test_ws_manager.py",
+    "README.md",
+    "docs/websocket-manager.md"
+  ],
+  "docsUpdated": [
+    "README.md",
+    "docs/websocket-manager.md"
+  ],
+  "docsReviewed": [
+    "DESIGN.md",
+    "COPILOT_INSTRUCTIONS.md",
+    "docs/concepts/empires-online/README.md",
+    "docs/concepts/empires-online/LLD.md"
+  ],
+  "completedTasks": [1, 2, 3, 4]
+}
