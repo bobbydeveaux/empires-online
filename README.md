@@ -16,6 +16,7 @@ Empires is a turn-based strategy game where players:
 This implementation consists of:
 - **Backend**: FastAPI-based REST API with PostgreSQL database
 - **Frontend**: React TypeScript SPA with real-time updates
+- **Reverse Proxy**: Nginx serving static assets and proxying API/WebSocket requests to the backend
 - **Database**: PostgreSQL with SQLAlchemy ORM
 - **Deployment**: Docker containers with docker-compose
 
