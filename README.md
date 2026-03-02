@@ -138,6 +138,9 @@ Instability Penalty = If revolters > supporters, multiply total by 0.5
 - `GET /api/players/countries` - List available countries
 - `GET /api/players/me` - Get current player info
 
+### WebSocket
+- `WS /ws/{game_id}?token=<jwt>` - Real-time game updates (JWT required via query param or Authorization header)
+
 ## Testing
 
 ### Backend Tests
@@ -175,7 +178,7 @@ docker-compose down
 - [x] Comprehensive unit tests for game logic
 
 ### Phase 2 - Enhanced Features (🔄 Next)
-- [ ] Add WebSocket support for real-time updates
+- [x] Add WebSocket support for real-time updates
 - [ ] Implement trading between players
 - [ ] Add game history and statistics
 - [ ] Create comprehensive API documentation
