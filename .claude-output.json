@@ -1,0 +1,22 @@
+{
+  "prTitle": "feat: configure Nginx WebSocket proxy for real-time game updates",
+  "prBody": "## Summary\n\nConfigures the Nginx reverse proxy to support WebSocket connections alongside existing REST API routes, enabling real-time game state updates via the `/ws/` path.\n\n### Changes\n\n- **`frontend/nginx.conf`**: Added `map` directive for WebSocket Connection header handling, `/ws/` location block with `Upgrade`/`Connection` headers, `proxy_http_version 1.1`, and 24-hour read/send timeouts for long-lived game sessions\n- **`.github/workflows/ci.yml`**: Added `validate-nginx` CI job that runs `nginx -t` via Docker to catch config syntax errors on every push and PR\n- **`README.md`**: Updated architecture section to mention Nginx reverse proxy role\n- **`docs/nginx-websocket-proxy.md`**: New documentation covering configuration details, directive explanations, request flow diagram, CI validation, and troubleshooting guide\n\n### Acceptance Criteria Met\n\n- [x] Nginx proxies WebSocket connections at `/ws/` path with correct Upgrade and Connection headers\n- [x] WebSocket connections remain stable through Nginx with 24-hour timeout settings\n- [x] Existing HTTP API routes (`/api/`, `/`, `/static/`) are unaffected by the configuration change\n\nCloses #17",
+  "testsPass": true,
+  "filesChanged": [
+    "frontend/nginx.conf",
+    ".github/workflows/ci.yml",
+    "README.md",
+    "docs/nginx-websocket-proxy.md"
+  ],
+  "docsUpdated": [
+    "docs/nginx-websocket-proxy.md",
+    "README.md"
+  ],
+  "docsReviewed": [
+    "docs/concepts/empires-online/ROAM.md",
+    "docs/concepts/empires-online/HLD.md",
+    "docs/concepts/empires-online/LLD.md",
+    "docs/concepts/empires-online/PRD.md"
+  ],
+  "completedTasks": [1, 2, 3, 4]
+}
