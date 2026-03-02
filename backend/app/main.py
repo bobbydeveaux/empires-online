@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import auth, games, players
+from app.api.routes import auth, games, players, ws
 from app.core.config import settings
 
 app = FastAPI(
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 app.include_router(games.router, prefix="/api/games", tags=["games"])
 app.include_router(players.router, prefix="/api/players", tags=["players"])
+app.include_router(ws.router, tags=["websocket"])
 
 
 @app.get("/")
