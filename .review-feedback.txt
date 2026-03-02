@@ -1,0 +1,38 @@
+## Code Review - Changes Requested
+
+## ❌ BLOCKING ISSUES FOUND
+
+### Summary
+
+This PR is titled **"Implement WebSocket connection manager with room-based broadcasting"** (linked to issue #15), but contains **no implementation whatsoever**. The only change is a single line added to `.gitignore`:
+
+```diff
++# Worker temporary state files (auto-added by COO)
++.claude-state.json
+```
+
+### Blocking: No Implementation Present
+
+**CRITICAL** — None of the acceptance criteria from issue #15 are met:
+
+| Acceptance Criteria | Status |
+|---|---|
+| `ConnectionManager` with connect, disconnect, join_room, leave_room, broadcast_to_room | Not implemented |
+| PostgreSQL NOTIFY/LISTEN listener for cross-process event fanout | Not implemented |
+| Unit tests for room-based message routing and connection lifecycle | Not implemented |
+| `backend/app/services/ws_manager.py` created/modified | File not touched |
+
+The PR body states "Work in Progress - AI is implementing the changes" and all implementation plan items are unchecked. This PR should not be merged as it delivers none of the described functionality.
+
+### Non-Blocking Notes
+
+- The `.gitignore` addition for `.claude-state.json` is fine on its own, but does not warrant a feature PR.
+
+### Recommendation
+
+This PR should remain in draft / WIP status until the actual WebSocket connection manager implementation is complete. Request changes until the core feature code, tests, and any documentation updates are added.
+
+**Action Required**: Please address the blocking issues above before merging.
+
+---
+*Reviewed by code-reviewer agent*
