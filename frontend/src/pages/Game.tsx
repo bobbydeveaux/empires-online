@@ -4,11 +4,12 @@ import { GameState, SpawnedCountryWithDetails, GameAction, WsServerMessage } fro
 import { gamesAPI } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { useGameWebSocket } from '../hooks/useGameWebSocket';
+import { useToast } from '../components/Toast';
 
 const Game: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
   const { user } = useAuth();
-  const [error, setError] = useState('');
+  const { showToast } = useToast();
   const [actionLoading, setActionLoading] = useState(false);
 
   const token = localStorage.getItem('authToken');
@@ -39,7 +40,7 @@ const Game: React.FC = () => {
       await gamesAPI.startGame(Number(gameId));
       await refreshGameState();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to start game');
+      showToast(err.response?.data?.detail || 'Failed to start game', 'error');
     }
   };
 
@@ -51,8 +52,9 @@ const Game: React.FC = () => {
     try {
       await gamesAPI.executeDevelopment(Number(gameId), currentPlayer.id);
       await refreshGameState();
+      showToast('Development executed successfully', 'success');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to execute development');
+      showToast(err.response?.data?.detail || 'Failed to execute development', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -67,8 +69,9 @@ const Game: React.FC = () => {
       const gameAction: GameAction = { action, quantity };
       await gamesAPI.performAction(Number(gameId), currentPlayer.id, gameAction);
       await refreshGameState();
+      showToast(`Action "${action}" completed`, 'success');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to perform action');
+      showToast(err.response?.data?.detail || 'Failed to perform action', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -80,7 +83,7 @@ const Game: React.FC = () => {
       await gamesAPI.nextRound(Number(gameId));
       await refreshGameState();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to advance round');
+      showToast(err.response?.data?.detail || 'Failed to advance round', 'error');
     }
   };
 
@@ -107,8 +110,6 @@ const Game: React.FC = () => {
           <strong>Phase:</strong> {gameState.game.phase}
         </div>
       </div>
-
-      {error && <div className="error">{error}</div>}
 
       {/* Game Controls */}
       {gameState.game.phase === 'waiting' && isCreator && (
