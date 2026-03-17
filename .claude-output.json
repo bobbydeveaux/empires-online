@@ -1,0 +1,13 @@
+{
+  "prTitle": "feat: broadcast WebSocket game_state_update after actions and phase transitions",
+  "prBody": "## Summary\n\nIntegrates `game_state_update` WebSocket broadcasts into all state-changing REST endpoints so connected clients can refresh their UI in real time without polling.\n\n### Changes\n\n- **`game_broadcast.py`**: Added `game_state_update_message()` builder that includes optional full `GameState` payload\n- **`games.py`**: Added `_build_game_state_payload()` helper to serialize current game state (game, players, leaderboard) for broadcasts. Added `game_state_update` broadcasts after:\n  - Game start (`POST /games/{id}/start`) — waiting → development\n  - Development completed (`POST /games/{id}/countries/{cid}/develop`) — so other players see progress\n  - Phase transition (development → actions) — when all players complete development\n  - Action performed (`POST /games/{id}/countries/{cid}/actions`) — updated player state after buy_bond, build_bank, etc.\n  - Round advance / game completion (`POST /games/{id}/next-round`) — actions → development or completed\n- **Tests**: Added 2 new tests for `game_state_update_message` (with and without game_state payload)\n- **Docs**: Moved `game_state_update` from \"Reserved/Future\" to active game state events, updated architecture description to reflect async `broadcast_event`, updated broadcasting flow documentation\n\n### Review Feedback Addressed\n\n- **CRITICAL (async broadcast_event)**: Already fixed in master — `broadcast_event` is async and awaits `_broadcast` directly\n- **Unused Optional import**: Was already cleaned up; re-added intentionally for the new `game_state_update_message` signature\n\n### How It Works\n\nThe frontend `useGameWebSocket` hook already handles `game_state_update` messages — when the message includes `game_state`, it applies it directly to React state; otherwise it falls back to a REST refetch. By broadcasting full game state after every action and phase transition, all connected clients see updates immediately.\n\nCloses #37",
+  "testsPass": true,
+  "filesChanged": [
+    "backend/app/services/game_broadcast.py",
+    "backend/app/api/routes/games.py",
+    "backend/app/tests/test_game_broadcast.py",
+    "docs/websocket-api.md"
+  ],
+  "docsUpdated": ["docs/websocket-api.md"],
+  "docsReviewed": ["docs/concepts/empires-online/HLD.md", "docs/concepts/empires-online/LLD.md", "docs/concepts/empires-online/PRD.md", "README.md"]
+}
