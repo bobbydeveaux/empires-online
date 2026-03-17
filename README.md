@@ -59,7 +59,7 @@ pip install -r requirements.txt
 docker run -d --name empires-db -e POSTGRES_DB=empires_db -e POSTGRES_USER=empires -e POSTGRES_PASSWORD=empires -p 5432:5432 postgres:15
 ```
 
-3. **Initialize database and run migrations**
+3. **Initialize database** (runs Alembic migrations and seeds data)
 ```bash
 cd backend
 alembic upgrade head

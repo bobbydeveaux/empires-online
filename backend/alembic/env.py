@@ -7,9 +7,7 @@ from alembic import context
 
 from app.core.config import settings
 from app.core.database import Base
-
-# Import all models so that Base.metadata is fully populated
-import app.models.models  # noqa: F401
+from app.models import models  # noqa: F401 - ensure all models are imported
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -72,7 +70,8 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
         )
 
         with context.begin_transaction():
