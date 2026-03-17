@@ -126,4 +126,34 @@ export const gamesAPI = {
   }
 };
 
+// WebSocket URL builder
+export function buildWebSocketUrl(gameId: number): string {
+  const token = localStorage.getItem('authToken');
+
+  // Determine base: use the configured API base or derive from window.location
+  let wsBase: string;
+
+  if (API_BASE_URL.startsWith('http://') || API_BASE_URL.startsWith('https://')) {
+    // Absolute URL configured — convert http(s) to ws(s)
+    wsBase = API_BASE_URL.replace(/^http/, 'ws');
+  } else {
+    // Relative path (e.g. "/api") — derive from current page origin
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    wsBase = `${protocol}//${window.location.host}`;
+  }
+
+  // Remove trailing slash
+  wsBase = wsBase.replace(/\/$/, '');
+
+  // The WS endpoint is at /ws/{game_id}, not under /api
+  // Strip the /api suffix if present so we hit the root-level /ws route
+  wsBase = wsBase.replace(/\/api$/, '');
+
+  let url = `${wsBase}/ws/${gameId}`;
+  if (token) {
+    url += `?token=${encodeURIComponent(token)}`;
+  }
+  return url;
+}
+
 export default api;

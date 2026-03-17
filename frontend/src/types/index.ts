@@ -103,18 +103,37 @@ export interface AuthToken {
   token_type: string;
 }
 
-// WebSocket message types (Server → Client)
+// WebSocket message types
 
+// Shared payload types
+export interface WsPlayerInfo {
+  id: number;
+  username: string;
+}
+
+// Client → Server messages
+export interface WsPingMessage {
+  type: 'ping';
+}
+
+export interface WsChatOutMessage {
+  type: 'chat';
+  message: string;
+}
+
+export type WsClientMessage = WsPingMessage | WsChatOutMessage;
+
+// Server → Client messages
 export interface WsPlayerJoinedMessage {
   type: 'player_joined';
   game_id: number;
-  player: { id: number; username: string };
+  player: WsPlayerInfo;
 }
 
 export interface WsPlayerLeftMessage {
   type: 'player_left';
   game_id: number;
-  player: { id: number; username: string };
+  player: WsPlayerInfo;
 }
 
 export interface WsGameStateUpdateMessage {
@@ -127,13 +146,13 @@ export interface WsRoundChangedMessage {
   type: 'round_changed';
   game_id: number;
   round: number;
-  phase: string;
+  phase: Game['phase'];
 }
 
-export interface WsChatMessage {
+export interface WsChatInMessage {
   type: 'chat';
   game_id: number;
-  player: { id: number; username: string };
+  player: WsPlayerInfo;
   message: string;
 }
 
@@ -151,7 +170,7 @@ export type WsServerMessage =
   | WsPlayerLeftMessage
   | WsGameStateUpdateMessage
   | WsRoundChangedMessage
-  | WsChatMessage
+  | WsChatInMessage
   | WsPongMessage
   | WsErrorMessage;
 

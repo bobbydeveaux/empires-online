@@ -43,11 +43,21 @@ Invalid or missing tokens result in a close with code `1008` (Policy Violation).
 | `chat` | `{"game_id", "player": {"id", "username"}, "message"}` | Chat message broadcast |
 | `error` | `{"message": "..."}` | Error response for unknown message types |
 
+### Future Server → Client (reserved)
+
+| Type | Payload | Description |
+|------|---------|-------------|
+| `game_state_update` | `{"game_id", "game_state?": GameState}` | Full or partial game state push |
+| `round_changed` | `{"game_id", "round", "phase"}` | Round/phase transition notification |
+
 ## Example (JavaScript)
 
 ```javascript
 const token = "eyJhbGci..."; // JWT from /api/auth/token
-const ws = new WebSocket(`ws://localhost:8000/ws/1?token=${token}`);
+// Via Nginx proxy (recommended)
+const ws = new WebSocket(`ws://localhost:3000/ws/1?token=${token}`);
+// Direct backend (development only)
+// const ws = new WebSocket(`ws://localhost:8000/ws/1?token=${token}`);
 
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
@@ -60,14 +70,14 @@ ws.onopen = () => {
 };
 ```
 
-### Future Server → Client (reserved)
-
-| Type | Payload | Description |
-|------|---------|-------------|
-| `game_state_update` | `{"game_id", "game_state?": GameState}` | Full or partial game state push |
-| `round_changed` | `{"game_id", "round", "phase"}` | Round/phase transition notification |
-
 ## Frontend Integration
+
+### TypeScript Types
+
+All WebSocket message types are defined in `frontend/src/types/index.ts` as a discriminated union on the `type` field:
+
+- **`WsClientMessage`** — union of messages the client can send (`ping`, `chat`)
+- **`WsServerMessage`** — union of messages the server can send (`player_joined`, `player_left`, `pong`, `chat`, `error`, `game_state_update`, `round_changed`)
 
 ### `useGameWebSocket` Hook
 
@@ -98,7 +108,9 @@ const { gameState, connectionStatus, reconnect, refreshGameState } = useGameWebS
 - Sends ping keepalive every 25 seconds
 - Cleans up on unmount
 
-### `getWebSocketUrl` Utility
+### WebSocket URL Utilities
+
+**`getWebSocketUrl`** — Used by `useGameWebSocket`, accepts explicit token:
 
 ```typescript
 import { getWebSocketUrl } from '../services/api';
@@ -108,7 +120,16 @@ const url = getWebSocketUrl(gameId, token);
 // Or: wss://host/ws/{gameId}?token={token} (when on HTTPS)
 ```
 
-Respects `REACT_APP_WS_URL` environment variable if set.
+**`buildWebSocketUrl`** — Reads JWT from localStorage automatically:
+
+```typescript
+import { buildWebSocketUrl } from '../services/api';
+
+const url = buildWebSocketUrl(gameId);
+const ws = new WebSocket(url);
+```
+
+Both utilities derive `ws://` or `wss://` from the current page protocol (or configured `REACT_APP_API_URL` / `REACT_APP_WS_URL`) and strip the `/api` suffix to hit the root-level `/ws` route.
 
 ### Connection Status Banner
 
@@ -123,3 +144,4 @@ Both `Game.tsx` and `GameLobby.tsx` display a visual connection status indicator
 - **WebSocket Route** (`backend/app/api/routes/ws.py`): Handles the `/ws/{game_id}` endpoint, JWT validation, and message dispatch.
 - **useGameWebSocket** (`frontend/src/hooks/useGameWebSocket.ts`): React hook that manages WebSocket lifecycle, reconnection, and state synchronization.
 - **WebSocket Types** (`frontend/src/types/index.ts`): TypeScript discriminated union types for all WebSocket messages (`WsServerMessage`).
+- **Nginx Proxy** (`frontend/nginx.conf`): Proxies `/ws/` to the backend with WebSocket upgrade headers and a 24-hour `proxy_read_timeout` to support long-lived connections.
