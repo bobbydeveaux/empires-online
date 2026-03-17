@@ -320,6 +320,7 @@ class TestGameLogic:
         # excess = 5 - 2 = 3, lose 3 gold
         assert result["stable"] == False
         assert result["gold_lost"] == 3
+        assert result["excess_revolters"] == 3
         assert result["gold_before"] == 10
         assert result["gold_after"] == 7
         assert country.gold == 7

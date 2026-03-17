@@ -28,11 +28,156 @@ from app.services.game_broadcast import (
     round_advanced_message,
     game_completed_message,
     player_joined_game_message,
+    actions_completed_message,
     stability_check_message,
+    round_summary_message,
 )
 import json
 
 router = APIRouter()
+
+
+def _run_stability_checks(db: Session, game: Game) -> list:
+    """Run stability checks for all countries in a game. Returns results list."""
+    spawned_countries = (
+        db.query(SpawnedCountry).filter(SpawnedCountry.game_id == game.id).all()
+    )
+    results = []
+    for sc in spawned_countries:
+        country = db.query(Country).filter(Country.id == sc.country_id).first()
+        player = db.query(Player).filter(Player.id == sc.player_id).first()
+        check = GameLogic.run_stability_check(sc)
+        round_number = game.rounds - game.rounds_remaining + 1
+        if not check["stable"]:
+            history_entry = GameHistory(
+                game_id=game.id,
+                spawned_country_id=sc.id,
+                round_number=round_number,
+                action_type="stability_check",
+                details=json.dumps(check),
+            )
+            db.add(history_entry)
+        results.append({
+            "player_id": sc.player_id,
+            "player_name": player.username if player else "Unknown",
+            "country_name": country.name if country else "Unknown",
+            **check,
+        })
+    game.stability_checked = True
+    return results
+
+
+def _advance_round(db: Session, game: Game, background_tasks: BackgroundTasks) -> dict:
+    """Advance the game to the next round (or complete it).
+
+    Runs stability checks, resets completion flags, and broadcasts events.
+    Returns a status dict.
+    """
+    # Run stability checks if not already done
+    stability_results = []
+    if not game.stability_checked:
+        stability_results = _run_stability_checks(db, game)
+
+    round_number = game.rounds - game.rounds_remaining + 1
+
+    # Build round summary from game history before resetting
+    summary = _build_round_summary(db, game.id, round_number)
+
+    # Reset completion flags
+    db.query(SpawnedCountry).filter(SpawnedCountry.game_id == game.id).update(
+        {"development_completed": False, "actions_completed": False}
+    )
+
+    # Advance round
+    game.rounds_remaining -= 1
+    game.stability_checked = False
+
+    if game.rounds_remaining <= 0:
+        game.phase = "completed"
+    else:
+        game.phase = "development"
+
+    db.commit()
+
+    new_round_number = game.rounds - game.rounds_remaining + 1
+
+    # Broadcast stability check results if any instability
+    if stability_results:
+        background_tasks.add_task(
+            broadcast_event,
+            game.id,
+            stability_check_message(game_id=game.id, results=stability_results),
+        )
+
+    # Broadcast round summary
+    if summary:
+        background_tasks.add_task(
+            broadcast_event,
+            game.id,
+            round_summary_message(
+                game_id=game.id,
+                round_number=round_number,
+                summary=summary,
+            ),
+        )
+
+    if game.phase == "completed":
+        leaderboard = _build_leaderboard(db, game.id)
+        background_tasks.add_task(
+            broadcast_event,
+            game.id,
+            game_completed_message(game_id=game.id, leaderboard=leaderboard),
+        )
+    else:
+        background_tasks.add_task(
+            broadcast_event,
+            game.id,
+            round_advanced_message(
+                game_id=game.id,
+                new_round=new_round_number,
+                phase=game.phase,
+            ),
+        )
+
+    return {
+        "round": new_round_number,
+        "phase": game.phase,
+        "stability_results": stability_results,
+    }
+
+
+def _build_round_summary(db: Session, game_id: int, round_number: int) -> list:
+    """Build a per-player summary of actions taken during a round."""
+    history_entries = (
+        db.query(GameHistory)
+        .filter(
+            GameHistory.game_id == game_id,
+            GameHistory.round_number == round_number,
+        )
+        .all()
+    )
+
+    # Group by spawned_country
+    by_country: dict = {}
+    for entry in history_entries:
+        sc_id = entry.spawned_country_id
+        if sc_id not in by_country:
+            sc = db.query(SpawnedCountry).filter(SpawnedCountry.id == sc_id).first()
+            player = db.query(Player).filter(Player.id == sc.player_id).first() if sc else None
+            country = db.query(Country).filter(Country.id == sc.country_id).first() if sc else None
+            by_country[sc_id] = {
+                "player_id": sc.player_id if sc else None,
+                "player_name": player.username if player else "Unknown",
+                "country_name": country.name if country else "Unknown",
+                "actions": [],
+            }
+        details = json.loads(entry.details) if entry.details else {}
+        by_country[sc_id]["actions"].append({
+            "type": entry.action_type,
+            "details": details,
+        })
+
+    return list(by_country.values())
 
 
 def _build_leaderboard(db: Session, game_id: int) -> list:
@@ -439,6 +584,92 @@ def perform_action(
     return ActionResult(**result)
 
 
+@router.post("/{game_id}/countries/{spawned_country_id}/end-actions")
+def end_actions(
+    game_id: int,
+    spawned_country_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: Player = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Mark a player as done with the actions phase.
+
+    When all players have ended actions, the game automatically advances
+    to the next round (running stability checks first).
+    """
+    game = db.query(Game).filter(Game.id == game_id).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    if game.phase != "actions":
+        raise HTTPException(status_code=400, detail="Not in actions phase")
+
+    spawned_country = (
+        db.query(SpawnedCountry)
+        .filter(
+            SpawnedCountry.id == spawned_country_id,
+            SpawnedCountry.game_id == game_id,
+            SpawnedCountry.player_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not spawned_country:
+        raise HTTPException(
+            status_code=404, detail="Country not found or not owned by player"
+        )
+
+    if spawned_country.actions_completed:
+        raise HTTPException(
+            status_code=400, detail="Actions already ended for this round"
+        )
+
+    spawned_country.actions_completed = True
+    db.commit()
+
+    # Check if all players have completed actions
+    total_players = (
+        db.query(SpawnedCountry).filter(SpawnedCountry.game_id == game_id).count()
+    )
+    completed_players = (
+        db.query(SpawnedCountry)
+        .filter(
+            SpawnedCountry.game_id == game_id,
+            SpawnedCountry.actions_completed == True,
+        )
+        .count()
+    )
+
+    # Broadcast actions completed progress
+    background_tasks.add_task(
+        broadcast_event,
+        game_id,
+        actions_completed_message(
+            game_id=game_id,
+            player_id=current_user.id,
+            username=current_user.username,
+            completed_count=completed_players,
+            total_count=total_players,
+        ),
+    )
+
+    if completed_players == total_players:
+        # Auto-advance: run stability checks and move to next round
+        result = _advance_round(db, game, background_tasks)
+        return {
+            "message": "All players done — round advanced",
+            "phase": result["phase"],
+            "round": result["round"],
+            "stability_results": result["stability_results"],
+        }
+
+    return {
+        "message": "Actions ended",
+        "completed_count": completed_players,
+        "total_count": total_players,
+    }
+
+
 @router.post("/{game_id}/next-round")
 def next_round(
     game_id: int,
@@ -461,65 +692,40 @@ def next_round(
             status_code=400, detail="Can only advance from actions phase"
         )
 
-    # Run stability check for all players before advancing
-    spawned_countries = (
-        db.query(SpawnedCountry).filter(SpawnedCountry.game_id == game_id).all()
-    )
-    stability_results = []
-    for sc in spawned_countries:
-        result = GameLogic.run_stability_check(sc)
-        player = db.query(Player).filter(Player.id == sc.player_id).first()
-        result["player_id"] = sc.player_id
-        result["player_name"] = player.username if player else "Unknown"
-        stability_results.append(result)
-
-    # Broadcast stability check results
-    background_tasks.add_task(
-        broadcast_event,
-        game_id,
-        stability_check_message(game_id=game_id, results=stability_results),
-    )
-
-    # Reset development and action completion for all players
-    db.query(SpawnedCountry).filter(SpawnedCountry.game_id == game_id).update(
-        {"development_completed": False, "actions_completed": False}
-    )
-
-    # Decrease rounds remaining
-    game.rounds_remaining -= 1
-
-    if game.rounds_remaining <= 0:
-        game.phase = "completed"
-    else:
-        game.phase = "development"
-
-    db.commit()
-
-    new_round_number = game.rounds - game.rounds_remaining + 1
-
-    if game.phase == "completed":
-        # Broadcast game completed with final leaderboard
-        leaderboard = _build_leaderboard(db, game_id)
-        background_tasks.add_task(
-            broadcast_event,
-            game_id,
-            game_completed_message(game_id=game_id, leaderboard=leaderboard),
-        )
-    else:
-        # Broadcast round advanced event
-        background_tasks.add_task(
-            broadcast_event,
-            game_id,
-            round_advanced_message(
-                game_id=game_id,
-                new_round=new_round_number,
-                phase=game.phase,
-            ),
-        )
+    result = _advance_round(db, game, background_tasks)
 
     return {
-        "message": f"Advanced to round {new_round_number}",
-        "phase": game.phase,
+        "message": f"Advanced to round {result['round']}",
+        "phase": result["phase"],
+        "stability_results": result["stability_results"],
+    }
+
+
+@router.get("/{game_id}/round-summary")
+def get_round_summary(
+    game_id: int,
+    round_number: int = None,
+    db: Session = Depends(get_db),
+):
+    """Get a summary of all actions taken during a round.
+
+    If round_number is not provided, returns the most recently completed round.
+    """
+    game = db.query(Game).filter(Game.id == game_id).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    if round_number is None:
+        # Default to current/last completed round
+        round_number = game.rounds - game.rounds_remaining
+        if round_number < 1:
+            round_number = 1
+
+    summary = _build_round_summary(db, game_id, round_number)
+    return {
+        "game_id": game_id,
+        "round": round_number,
+        "summary": summary,
     }
 
 

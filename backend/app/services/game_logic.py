@@ -141,6 +141,41 @@ class GameLogic:
     }
 
     @staticmethod
+    def run_stability_check(spawned_country: SpawnedCountry) -> Dict[str, Any]:
+        """Run stability check at end of round.
+
+        If revolters > supporters, the country loses gold equal to the
+        difference (floored at 0).  Returns a dict describing what happened.
+
+        Per FR-005: deduct gold = (revolters - supporters), floor at 0.
+        """
+        revolters = spawned_country.revolters
+        supporters = spawned_country.supporters
+
+        if revolters <= supporters:
+            return {
+                "stable": True,
+                "gold_lost": 0,
+                "revolters": revolters,
+                "supporters": supporters,
+            }
+
+        excess = revolters - supporters
+        gold_before = spawned_country.gold
+        gold_lost = min(excess, gold_before)  # Cannot lose more than you have
+        spawned_country.gold = max(0, gold_before - excess)
+
+        return {
+            "stable": False,
+            "gold_lost": gold_lost,
+            "excess_revolters": excess,
+            "gold_before": gold_before,
+            "gold_after": spawned_country.gold,
+            "revolters": revolters,
+            "supporters": supporters,
+        }
+
+    @staticmethod
     def can_perform_action(
         spawned_country: SpawnedCountry, action: str, quantity: int = 1
     ) -> bool:
@@ -189,34 +224,3 @@ class GameLogic:
             },
         }
 
-    @staticmethod
-    def run_stability_check(spawned_country: SpawnedCountry) -> Dict[str, Any]:
-        """Run stability check at end of round.
-
-        If revolters > supporters, deduct gold equal to (revolters - supporters),
-        with gold floored at 0.
-        """
-        revolters = spawned_country.revolters
-        supporters = spawned_country.supporters
-
-        if revolters <= supporters:
-            return {
-                "stable": True,
-                "gold_lost": 0,
-                "revolters": revolters,
-                "supporters": supporters,
-            }
-
-        excess = revolters - supporters
-        gold_before = spawned_country.gold
-        gold_lost = min(gold_before, excess)
-        spawned_country.gold = max(0, gold_before - excess)
-
-        return {
-            "stable": False,
-            "gold_lost": gold_lost,
-            "revolters": revolters,
-            "supporters": supporters,
-            "gold_before": gold_before,
-            "gold_after": spawned_country.gold,
-        }
