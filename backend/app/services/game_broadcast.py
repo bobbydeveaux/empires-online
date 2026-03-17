@@ -6,7 +6,7 @@ to be scheduled as FastAPI BackgroundTasks from synchronous REST handlers.
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from app.services.ws_manager import manager
 
@@ -93,6 +93,19 @@ def game_completed_message(
     }
 
 
+def game_state_update_message(
+    game_id: int,
+    game_state: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    msg: Dict[str, Any] = {
+        "type": "game_state_update",
+        "game_id": game_id,
+    }
+    if game_state is not None:
+        msg["game_state"] = game_state
+    return msg
+
+
 def player_joined_game_message(
     game_id: int,
     player_id: int,
@@ -105,6 +118,48 @@ def player_joined_game_message(
         "player": _player_summary(player_id, username),
         "country_name": country_name,
     }
+
+
+def actions_completed_message(
+    game_id: int,
+    player_id: int,
+    username: str,
+    completed_count: int,
+    total_count: int,
+) -> Dict[str, Any]:
+    return {
+        "type": "actions_completed",
+        "game_id": game_id,
+        "player": _player_summary(player_id, username),
+        "completed_count": completed_count,
+        "total_count": total_count,
+    }
+
+
+
+def stability_check_message(
+    game_id: int,
+    results: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    return {
+        "type": "stability_check",
+        "game_id": game_id,
+        "results": results,
+    }
+
+
+def round_summary_message(
+    game_id: int,
+    round_number: int,
+    summary: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    return {
+        "type": "round_summary",
+        "game_id": game_id,
+        "round": round_number,
+        "summary": summary,
+    }
+
 
 
 # ---------------------------------------------------------------------------
