@@ -89,7 +89,7 @@ npm start
 
 ### Core Game Loop
 1. **Development Phase** (automatic): Calculate luxuries, industries, unemployment, banking costs
-2. **Action Phase** (optional): Players can buy bonds, build banks, trade resources
+2. **Action Phase** (optional): Players can buy bonds, build banks, recruit people, acquire territory
 3. **Round End**: Update state, check stability, prepare for next round
 4. **Game End**: Calculate victory points after all rounds
 

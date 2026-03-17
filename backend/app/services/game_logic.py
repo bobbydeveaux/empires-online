@@ -174,6 +174,12 @@ class GameLogic:
         elif action == "acquire_territory":
             # Acquire territory costs 3 gold each
             return spawned_country.gold >= (3 * quantity)
+        elif action == "recruit_people":
+            # Recruiting costs 2 gold per person
+            return spawned_country.gold >= (2 * quantity)
+        elif action == "acquire_territory":
+            # Acquiring territory costs 3 gold each
+            return spawned_country.gold >= (3 * quantity)
 
         return False
 
@@ -222,5 +228,7 @@ class GameLogic:
                 "gold": spawned_country.gold,
                 "bonds": spawned_country.bonds,
                 "banks": spawned_country.banks,
+                "people": spawned_country.people,
+                "territories": spawned_country.territories,
             },
         }
