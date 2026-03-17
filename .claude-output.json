@@ -1,0 +1,13 @@
+{
+  "prTitle": "feat: implement useGameWebSocket hook with exponential backoff reconnection",
+  "prBody": "## Summary\n\nImplements the `useGameWebSocket` custom React hook that provides real-time WebSocket connectivity for game state updates.\n\n### Changes\n\n- **`frontend/src/hooks/useGameWebSocket.ts`** (NEW): Custom hook that:\n  - Establishes WebSocket connection to `/ws/{game_id}?token=<jwt>` on mount\n  - Implements exponential backoff reconnection (1s → 2s → 4s → … → 30s max)\n  - Fetches full game state via REST API on every (re)connect to ensure sync\n  - Returns `gameState`, `connectionStatus`, `reconnect()`, and `lastMessage`\n  - Sends periodic ping keepalives (30s interval)\n  - Cleans up connection on unmount\n\n- **`frontend/src/types/index.ts`**: Added WebSocket message types (`WsServerMessage` discriminated union) and `ConnectionStatus` type\n\n- **`frontend/src/hooks/useGameWebSocket.test.ts`** (NEW): 13 unit tests covering connection, reconnection, backoff, state sync, message handling, cleanup\n\n- **`docs/websocket-api.md`**: Updated with frontend hook documentation and usage examples\n\nCloses #30",
+  "testsPass": true,
+  "filesChanged": [
+    "frontend/src/hooks/useGameWebSocket.ts",
+    "frontend/src/hooks/useGameWebSocket.test.ts",
+    "frontend/src/types/index.ts",
+    "docs/websocket-api.md"
+  ],
+  "docsUpdated": ["docs/websocket-api.md"],
+  "docsReviewed": ["README.md", "docs/websocket-api.md"]
+}
