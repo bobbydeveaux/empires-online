@@ -1,0 +1,15 @@
+{
+  "prTitle": "feat: implement toast notification system with ToastProvider and useToast hook",
+  "prBody": "## Summary\n\nImplements a toast notification system for displaying action confirmations, errors, and informational messages across the application.\n\n### Changes\n\n- **Toast component** (`frontend/src/components/Toast.tsx`): `ToastProvider` context, `useToast` hook, and toast rendering with success/error/info variants\n- **App.tsx**: Wrapped app with `ToastProvider`\n- **App.css**: Toast styles with slide-in animation, variant colors, and mobile-responsive layout (full-width on ≤768px)\n- **Game.tsx**: Replaced inline error `<div>` with `showToast()` calls for all game actions (start, develop, perform action, advance round), added success confirmations\n- **Tests**: 7 tests covering all variants, auto-dismiss, manual dismiss, multiple toasts, and error when used outside provider\n- **Docs**: Added `docs/toast-notifications.md` with usage guide, updated README roadmap\n\nCloses #38",
+  "testsPass": true,
+  "filesChanged": [
+    "frontend/src/components/Toast.tsx",
+    "frontend/src/components/Toast.test.tsx",
+    "frontend/src/App.tsx",
+    "frontend/src/App.css",
+    "frontend/src/pages/Game.tsx",
+    "frontend/src/setupTests.ts"
+  ],
+  "docsUpdated": ["docs/toast-notifications.md", "README.md"],
+  "docsReviewed": ["docs/websocket-api.md", "docs/database-migrations.md"]
+}

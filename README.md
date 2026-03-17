@@ -184,6 +184,7 @@ docker-compose down
 
 ### Phase 2 - Enhanced Features (🔄 Next)
 - [x] Add WebSocket support for real-time updates (backend + frontend hook with reconnection)
+- [x] Toast notification system for action confirmations and errors
 - [ ] Implement trading between players
 - [ ] Add game history and statistics
 - [ ] Create comprehensive API documentation
