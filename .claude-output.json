@@ -1,0 +1,17 @@
+{
+  "prTitle": "feat: configure Alembic migration framework with alembic.ini and env.py",
+  "prBody": "## Summary\n\nConfigures the Alembic database migration framework for the backend, enabling version-controlled schema changes.\n\n- **`backend/alembic.ini`**: Main Alembic configuration with logging setup; `sqlalchemy.url` is set dynamically from app config\n- **`backend/alembic/env.py`**: Migration environment that imports `Base` from `app.core.database` and `DATABASE_URL` from `app.core.config.settings`, with all models loaded for autogenerate support\n- **`backend/alembic/script.py.mako`**: Template for generating new migration files\n- **`backend/alembic/versions/`**: Directory for migration scripts (empty, ready for first migration)\n- Updated `README.md` to reference Alembic in architecture and setup instructions\n- Added `docs/database-migrations.md` with complete usage guide\n\n### Acceptance Criteria\n- ✅ `backend/alembic.ini` exists with valid config\n- ✅ `backend/alembic/env.py` imports `Base` from `app.core.database` and uses `DATABASE_URL` from `app.core.config`\n- ✅ `alembic current` will succeed when run with a database connection\n\nCloses #32",
+  "testsPass": true,
+  "filesChanged": [
+    "backend/alembic.ini",
+    "backend/alembic/__init__.py",
+    "backend/alembic/env.py",
+    "backend/alembic/script.py.mako",
+    "backend/alembic/versions/.gitkeep",
+    "README.md",
+    "docs/database-migrations.md"
+  ],
+  "docsUpdated": ["docs/database-migrations.md", "README.md"],
+  "docsReviewed": ["DESIGN.md", "COPILOT_INSTRUCTIONS.md"],
+  "completedTasks": [1]
+}
