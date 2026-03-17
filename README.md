@@ -198,6 +198,7 @@ docker-compose down
 
 ### Phase 2 - Enhanced Features (🔄 In Progress)
 - [x] Add WebSocket support for real-time updates (backend + frontend hook with reconnection)
+- [x] Toast notification system for action confirmations and errors
 - [x] End-actions endpoint with automatic phase transitions
 - [x] Stability check at round end (revolters > supporters → gold loss)
 - [x] Round summary endpoint with per-player action history

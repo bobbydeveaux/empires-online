@@ -4,7 +4,6 @@ import { GameState, SpawnedCountryWithDetails, GameAction, WsServerMessage } fro
 import { gamesAPI } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { useGameWebSocket } from '../hooks/useGameWebSocket';
-
 // Toast notification types
 interface Toast {
   id: number;
@@ -28,7 +27,6 @@ let toastIdCounter = 0;
 const Game: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
   const { user } = useAuth();
-  const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [roundSummary, setRoundSummary] = useState<PlayerDelta[] | null>(null);
@@ -99,9 +97,7 @@ const Game: React.FC = () => {
       await refreshGameState();
       addToast('Game started!', 'success');
     } catch (err: any) {
-      const msg = err.response?.data?.detail || 'Failed to start game';
-      setError(msg);
-      addToast(msg, 'error');
+      addToast(err.response?.data?.detail || 'Failed to start game', 'error');
     }
   };
 
@@ -115,9 +111,7 @@ const Game: React.FC = () => {
       await refreshGameState();
       addToast('Development completed!', 'success');
     } catch (err: any) {
-      const msg = err.response?.data?.detail || 'Failed to execute development';
-      setError(msg);
-      addToast(msg, 'error');
+      addToast(err.response?.data?.detail || 'Failed to execute development', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -140,9 +134,7 @@ const Game: React.FC = () => {
       };
       addToast(`${actionLabels[action] || 'Action completed'} (x${quantity})`, 'success');
     } catch (err: any) {
-      const msg = err.response?.data?.detail || 'Failed to perform action';
-      setError(msg);
-      addToast(msg, 'error');
+      addToast(err.response?.data?.detail || 'Failed to perform action', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -155,9 +147,7 @@ const Game: React.FC = () => {
       await refreshGameState();
       addToast('Advanced to next round', 'success');
     } catch (err: any) {
-      const msg = err.response?.data?.detail || 'Failed to advance round';
-      setError(msg);
-      addToast(msg, 'error');
+      addToast(err.response?.data?.detail || 'Failed to advance round', 'error');
     }
   };
 
@@ -193,8 +183,6 @@ const Game: React.FC = () => {
           <strong>Phase:</strong> {gameState.game.phase}
         </div>
       </div>
-
-      {error && <div className="error">{error}</div>}
 
       {/* Round Summary */}
       {roundSummary && (

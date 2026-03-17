@@ -1,25 +1,15 @@
 {
-  "prTitle": "feat: add end-actions endpoint, round summary, stability check, and auto phase transitions",
-  "prBody": "## Summary\n\nAdds the remaining Sprint 2 game flow features: automatic phase transitions, stability checks, round summaries, and new player actions.\n\n### Changes\n\n- **End-actions endpoint** (`POST /games/{id}/countries/{cid}/end-actions`) — Players mark themselves as done with the actions phase. When all players complete, the game automatically advances to the next round (or completes).\n- **Stability check** (`GameLogic.run_stability_check()`) — At round end, countries with revolters > supporters lose gold equal to the excess (floored at 0). Results are broadcast via WebSocket.\n- **Round summary endpoint** (`GET /games/{id}/round-summary`) — Returns per-player action history for a given round, built from GameHistory entries.\n- **Auto phase transitions** — Refactored `_advance_round()` helper runs stability checks, builds round summaries, resets completion flags, and broadcasts all events. Used by both end-actions (automatic) and next-round (manual) endpoints.\n- **New actions** — `recruit_people` (2 gold → +1 person) and `acquire_territory` (3 gold → +1 territory) added to `GameLogic.can_perform_action()` and `perform_action()`.\n- **New broadcast messages** — `actions_completed`, `stability_check`, `round_summary` message builders in game_broadcast.py.\n- **11 new unit tests** — Stability check (4 tests), recruit_people (2), acquire_territory (2), broadcast messages (3).\n\n### Game Flow (Updated)\n\n1. Development phase → all players develop → auto-transition to actions\n2. Actions phase → players perform actions → end-actions\n3. All players end actions → stability check → round summary → next round (or game complete)\n\nCloses #36",
+  "prTitle": "feat: implement toast notification system with ToastProvider and useToast hook",
+  "prBody": "## Summary\n\nImplements a toast notification system for displaying action confirmations, errors, and informational messages across the application.\n\n### Changes\n\n- **Toast component** (`frontend/src/components/Toast.tsx`): `ToastProvider` context, `useToast` hook, and toast rendering with success/error/info variants\n- **App.tsx**: Wrapped app with `ToastProvider`\n- **App.css**: Toast styles with slide-in animation, variant colors, and mobile-responsive layout (full-width on ≤768px)\n- **Game.tsx**: Replaced inline error `<div>` with `showToast()` calls for all game actions (start, develop, perform action, advance round), added success confirmations\n- **Tests**: 7 tests covering all variants, auto-dismiss, manual dismiss, multiple toasts, and error when used outside provider\n- **Docs**: Added `docs/toast-notifications.md` with usage guide, updated README roadmap\n\nCloses #38",
   "testsPass": true,
   "filesChanged": [
-    "backend/app/services/game_logic.py",
-    "backend/app/services/game_broadcast.py",
-    "backend/app/api/routes/games.py",
-    "backend/app/tests/test_game_logic.py",
-    "backend/app/tests/test_game_broadcast.py",
-    "docs/websocket-api.md",
-    "README.md"
+    "frontend/src/components/Toast.tsx",
+    "frontend/src/components/Toast.test.tsx",
+    "frontend/src/App.tsx",
+    "frontend/src/App.css",
+    "frontend/src/pages/Game.tsx",
+    "frontend/src/setupTests.ts"
   ],
-  "docsUpdated": [
-    "docs/websocket-api.md",
-    "README.md"
-  ],
-  "docsReviewed": [
-    "DESIGN.md",
-    "COPILOT_INSTRUCTIONS.md",
-    "docs/concepts/empires-online/LLD.md",
-    "docs/concepts/empires-online/HLD.md",
-    "docs/concepts/empires-online/PRD.md"
-  ]
+  "docsUpdated": ["docs/toast-notifications.md", "README.md"],
+  "docsReviewed": ["docs/websocket-api.md", "docs/database-migrations.md"]
 }
