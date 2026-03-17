@@ -16,7 +16,7 @@ Empires is a turn-based strategy game where players:
 This implementation consists of:
 - **Backend**: FastAPI-based REST API with PostgreSQL database
 - **Frontend**: React TypeScript SPA with real-time updates
-- **Database**: PostgreSQL with SQLAlchemy ORM
+- **Database**: PostgreSQL with SQLAlchemy ORM and Alembic migrations
 - **Deployment**: Docker containers with docker-compose
 
 ## Quick Start
@@ -59,8 +59,10 @@ pip install -r requirements.txt
 docker run -d --name empires-db -e POSTGRES_DB=empires_db -e POSTGRES_USER=empires -e POSTGRES_PASSWORD=empires -p 5432:5432 postgres:15
 ```
 
-3. **Initialize database**
+3. **Initialize database** (runs Alembic migrations and seeds data)
 ```bash
+cd backend
+alembic upgrade head
 python app/init_db.py
 ```
 
@@ -195,7 +197,7 @@ docker-compose down
 
 ## Technology Stack
 
-- **Backend**: Python 3.11+, FastAPI, SQLAlchemy, PostgreSQL
+- **Backend**: Python 3.11+, FastAPI, SQLAlchemy, Alembic, PostgreSQL
 - **Frontend**: React 18, TypeScript, Axios
 - **Database**: PostgreSQL 15
 - **Testing**: Pytest (backend), Jest (frontend)
