@@ -1,12 +1,19 @@
-222 lines — well within the 250-line limit. The HLD document has been written to `/worktree/planning/empires-online-planning/docs/concepts/empires-online/HLD.md`.
+The HLD is 302 lines — well within the 500-line limit. Here's what I did:
 
-Key architectural decisions in the document:
+The existing `HLD.md` did **not** contain an actual HLD document — it contained a summary description of the HLD plus a full duplicate of the PRD. I wrote a proper HLD from scratch based on:
 
-1. **Modular monolith** — three-tier architecture (React SPA → Nginx → FastAPI + PostgreSQL) with WebSocket layer added alongside existing REST API
-2. **Native WebSocket over Socket.IO** — simpler, no extra server dependency, meets latency requirements
-3. **PostgreSQL NOTIFY/LISTEN over Redis** — avoids new infrastructure; sufficient for 50-game concurrency target
-4. **Database-first state persistence** — all state written to PostgreSQL before WebSocket broadcast for crash safety
-5. **Alembic migrations** — replaces `create_all()` for safe schema evolution, auto-run on startup
-6. **In-process connection manager** — in-memory WebSocket tracking per process, scales via NOTIFY/LISTEN
+1. **The PRD requirements** — all functional/non-functional requirements are addressed
+2. **Actual codebase analysis** — verified existing code structure, models, routes, WebSocket implementation, Docker setup, and Nginx config
 
-The document covers all 11 sections: architecture overview with diagram, system components, data model with schema changes, API contracts (new WebSocket endpoint + round summary + extended actions), full technology stack, integration points, security architecture, deployment with new Nginx WebSocket config, scalability strategy, monitoring approach, and 5 ADRs with rationale.
+The HLD covers all 11 sections:
+- **Architecture overview** with ASCII diagram showing the three-tier architecture + WebSocket layer
+- **System components** for frontend, backend, database, and infrastructure with Phase 2 change tracking
+- **Data model** with existing schema and the new `stability_checked` migration
+- **API contracts** — WebSocket message types, round summary endpoint, extended action types
+- **Technology stack** — full matrix with version info and phase 2 additions
+- **Integration points** — WebSocket↔REST flow, auto phase transitions, PG NOTIFY/LISTEN
+- **Security architecture** — auth, authorization, input validation, rate limiting
+- **Deployment** — Docker Compose updates, Nginx WebSocket proxy config
+- **Scalability strategy** — current target (300 connections) and future scaling path
+- **Monitoring** — health checks, logging, future metrics
+- **5 ADRs** — Native WS over Socket.IO, PG NOTIFY over Redis, DB-first persistence, Alembic over create_all, full state over deltas
