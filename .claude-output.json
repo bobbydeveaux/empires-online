@@ -1,0 +1,9 @@
+{
+  "prTitle": "fix: remove duplicate Alembic migration with conflicting revision ID",
+  "prBody": "## Summary\n\nFixes a broken Alembic migration chain where two migration files (`001_initial_schema.py` and `001_add_stability_checked.py`) both used revision ID `\"001\"` with `down_revision = None`. This would cause Alembic to fail with a \"multiple heads\" error when running migrations.\n\nThe `001_add_stability_checked.py` was redundant since the `stability_checked` column was already included in the initial schema migration.\n\n### Changes\n- Removed duplicate migration `001_add_stability_checked.py`\n\n### Review feedback addressed\n- The `broadcast_event()` async/sync issue from review feedback was already fixed in a prior commit (function is now async)\n- The unused `Optional` import was already cleaned up\n- No changes needed for the N+1 query note (acknowledged as pre-existing, non-blocking)\n\nCloses #18",
+  "testsPass": true,
+  "filesChanged": ["backend/alembic/versions/001_add_stability_checked.py"],
+  "docsUpdated": [],
+  "docsReviewed": ["docs/database-migrations.md", "README.md"],
+  "completedTasks": [1]
+}
