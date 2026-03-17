@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Game, Country } from '../types';
+import { Game, Country, WsServerMessage } from '../types';
 import { gamesAPI, playersAPI } from '../services/api';
+import { useGameWebSocket } from '../hooks/useGameWebSocket';
 
 const GameLobby: React.FC = () => {
   const [games, setGames] = useState<Game[]>([]);
@@ -11,11 +12,7 @@ const GameLobby: React.FC = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [gamesData, countriesData] = await Promise.all([
@@ -29,7 +26,18 @@ const GameLobby: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Refresh game list when window regains focus
+  useEffect(() => {
+    const handleFocus = () => { loadData(); };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [loadData]);
 
   const joinGame = async (gameId: number, countryId: number) => {
     try {
@@ -40,7 +48,7 @@ const GameLobby: React.FC = () => {
     }
   };
 
-  if (loading) {
+  if (loading && games.length === 0) {
     return <div className="loading">Loading...</div>;
   }
 
@@ -48,19 +56,28 @@ const GameLobby: React.FC = () => {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1>Game Lobby</h1>
-        <button 
-          className="btn" 
-          onClick={() => setShowCreateForm(!showCreateForm)}
-        >
-          {showCreateForm ? 'Cancel' : 'Create New Game'}
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            className="btn btn-secondary"
+            onClick={loadData}
+            title="Refresh game list"
+          >
+            Refresh
+          </button>
+          <button
+            className="btn"
+            onClick={() => setShowCreateForm(!showCreateForm)}
+          >
+            {showCreateForm ? 'Cancel' : 'Create New Game'}
+          </button>
+        </div>
       </div>
 
       {error && <div className="error">{error}</div>}
 
       {showCreateForm && (
-        <CreateGameForm 
-          countries={countries} 
+        <CreateGameForm
+          countries={countries}
           onGameCreated={(gameId) => {
             setShowCreateForm(false);
             navigate(`/game/${gameId}`);
@@ -76,11 +93,12 @@ const GameLobby: React.FC = () => {
         ) : (
           <div className="grid">
             {games.map(game => (
-              <GameCard 
-                key={game.id} 
-                game={game} 
+              <GameCardWithWs
+                key={game.id}
+                game={game}
                 countries={countries}
                 onJoin={joinGame}
+                onGameUpdated={loadData}
               />
             ))}
           </div>
@@ -103,7 +121,7 @@ const CreateGameForm: React.FC<CreateGameFormProps> = ({ countries, onGameCreate
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (selectedCountries.length < 2) {
       alert('Please select at least 2 countries');
       return;
@@ -121,8 +139,8 @@ const CreateGameForm: React.FC<CreateGameFormProps> = ({ countries, onGameCreate
   };
 
   const toggleCountry = (countryName: string) => {
-    setSelectedCountries(prev => 
-      prev.includes(countryName) 
+    setSelectedCountries(prev =>
+      prev.includes(countryName)
         ? prev.filter(c => c !== countryName)
         : [...prev, countryName]
     );
@@ -171,28 +189,60 @@ const CreateGameForm: React.FC<CreateGameFormProps> = ({ countries, onGameCreate
   );
 };
 
-interface GameCardProps {
+interface GameCardWithWsProps {
   game: Game;
   countries: Country[];
   onJoin: (gameId: number, countryId: number) => void;
+  onGameUpdated: () => void;
 }
 
-const GameCard: React.FC<GameCardProps> = ({ game, countries, onJoin }) => {
+/** Game card that subscribes to WebSocket for real-time player join/leave updates. */
+const GameCardWithWs: React.FC<GameCardWithWsProps> = ({ game, countries, onJoin, onGameUpdated }) => {
   const [selectedCountryId, setSelectedCountryId] = useState<number>(countries[0]?.id || 0);
+  const token = localStorage.getItem('authToken');
+
+  // Only subscribe to WebSocket for games in "waiting" phase
+  const shouldConnect = game.phase === 'waiting';
+
+  const handleWsMessage = useCallback((message: WsServerMessage) => {
+    if (message.type === 'player_joined' || message.type === 'player_left') {
+      onGameUpdated();
+    }
+  }, [onGameUpdated]);
+
+  const { connectionStatus } = useGameWebSocket({
+    gameId: shouldConnect ? game.id : null,
+    token: shouldConnect ? token : null,
+    onMessage: handleWsMessage,
+  });
 
   return (
     <div className="card">
-      <h3>Game #{game.id}</h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3>Game #{game.id}</h3>
+        {shouldConnect && (
+          <span
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: connectionStatus === 'connected' ? '#2e7d32' : connectionStatus === 'reconnecting' ? '#ff9800' : '#d32f2f',
+              display: 'inline-block',
+            }}
+            title={`Live updates: ${connectionStatus}`}
+          />
+        )}
+      </div>
       <p><strong>Status:</strong> {game.phase}</p>
       <p><strong>Rounds:</strong> {game.rounds_remaining} / {game.rounds} remaining</p>
       <p><strong>Created:</strong> {new Date(game.created_at).toLocaleDateString()}</p>
-      
+
       {game.phase === 'waiting' && (
         <div style={{ marginTop: '15px' }}>
           <div className="form-group">
             <label>Choose Country:</label>
-            <select 
-              value={selectedCountryId} 
+            <select
+              value={selectedCountryId}
               onChange={(e) => setSelectedCountryId(Number(e.target.value))}
             >
               {countries.map(country => (
@@ -202,18 +252,18 @@ const GameCard: React.FC<GameCardProps> = ({ game, countries, onJoin }) => {
               ))}
             </select>
           </div>
-          <button 
-            className="btn" 
+          <button
+            className="btn"
             onClick={() => onJoin(game.id, selectedCountryId)}
           >
             Join Game
           </button>
         </div>
       )}
-      
+
       {game.phase !== 'waiting' && (
-        <button 
-          className="btn btn-secondary" 
+        <button
+          className="btn btn-secondary"
           onClick={() => window.location.href = `/game/${game.id}`}
         >
           View Game
