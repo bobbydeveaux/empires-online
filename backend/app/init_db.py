@@ -1,21 +1,35 @@
 """
 Database initialization script for Empires Online.
-Creates tables and seeds initial data.
+Runs Alembic migrations and seeds initial data.
 """
 
+import os
+
+from alembic.config import Config
+from alembic import command
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.core.database import Base
 from app.core.config import settings
 from app.models.models import Country, Player
 from app.api.routes.auth import get_password_hash
 
 
-def init_db():
-    """Initialize database with tables and seed data."""
-    engine = create_engine(settings.DATABASE_URL)
-    Base.metadata.create_all(bind=engine)
+def run_migrations():
+    """Run Alembic migrations to head."""
+    alembic_cfg = Config(
+        os.path.join(os.path.dirname(__file__), "..", "alembic.ini")
+    )
+    alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+    command.upgrade(alembic_cfg, "head")
+    print("Alembic migrations applied successfully")
 
+
+def init_db():
+    """Initialize database with migrations and seed data."""
+    # Run Alembic migrations instead of create_all
+    run_migrations()
+
+    engine = create_engine(settings.DATABASE_URL)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = SessionLocal()
 
