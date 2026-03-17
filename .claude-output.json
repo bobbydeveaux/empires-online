@@ -1,0 +1,15 @@
+{
+  "prTitle": "feat: add stability_checked column and create initial Alembic migration",
+  "prBody": "## Summary\n\n- Add `stability_checked = Column(Boolean, default=False)` to the `Game` model in `models.py`\n- Configure Alembic framework: `alembic.ini`, `env.py`, `script.py.mako`\n- Create initial migration `001_add_stability_checked` with `upgrade()` and `downgrade()` functions\n- `DATABASE_URL` env var overrides the default connection string for flexible deployment\n\n## Test plan\n\n- [ ] Verify `alembic upgrade head` applies the migration successfully against a PostgreSQL database\n- [ ] Verify `alembic downgrade -1` removes the `stability_checked` column cleanly\n- [ ] Verify the `Game` model reflects the new column in ORM queries\n- [ ] Verify existing tests pass without modification\n\nCloses #33",
+  "testsPass": true,
+  "filesChanged": [
+    "backend/app/models/models.py",
+    "backend/alembic.ini",
+    "backend/alembic/env.py",
+    "backend/alembic/script.py.mako",
+    "backend/alembic/versions/001_add_stability_checked.py"
+  ],
+  "docsUpdated": ["docs/database-migrations.md"],
+  "docsReviewed": ["docs/concepts/empires-online/HLD.md", "docs/concepts/empires-online/LLD.md", "docs/concepts/empires-online/PRD.md", "README.md"],
+  "completedTasks": [1, 2, 3, 4]
+}
