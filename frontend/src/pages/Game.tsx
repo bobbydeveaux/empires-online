@@ -1,38 +1,32 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { GameState, SpawnedCountryWithDetails, GameAction } from '../types';
+import { GameState, SpawnedCountryWithDetails, GameAction, WsServerMessage } from '../types';
 import { gamesAPI } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
+import { useGameWebSocket } from '../hooks/useGameWebSocket';
 
 const Game: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
   const { user } = useAuth();
-  const [gameState, setGameState] = useState<GameState | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
-  const loadGameState = useCallback(async () => {
-    try {
-      if (!gameId) return;
-      const state = await gamesAPI.getGameState(Number(gameId));
-      setGameState(state);
-      setError('');
-    } catch (err: any) {
-      setError('Failed to load game state');
-    } finally {
-      setLoading(false);
-    }
-  }, [gameId]);
+  const token = localStorage.getItem('authToken');
+  const numericGameId = gameId ? Number(gameId) : null;
 
-  useEffect(() => {
-    if (gameId) {
-      loadGameState();
-      // Poll for updates every 5 seconds
-      const interval = setInterval(loadGameState, 5000);
-      return () => clearInterval(interval);
+  const handleWsMessage = useCallback((message: WsServerMessage) => {
+    if (message.type === 'error') {
+      console.warn('WebSocket error:', message.message);
     }
-  }, [gameId, loadGameState]);
+  }, []);
+
+  const { gameState, connectionStatus, reconnect, refreshGameState } = useGameWebSocket({
+    gameId: numericGameId,
+    token,
+    onMessage: handleWsMessage,
+  });
+
+  const loading = gameState === null && connectionStatus !== 'disconnected';
 
   const getCurrentPlayer = (): SpawnedCountryWithDetails | null => {
     if (!gameState || !user) return null;
@@ -43,7 +37,7 @@ const Game: React.FC = () => {
     try {
       if (!gameId) return;
       await gamesAPI.startGame(Number(gameId));
-      await loadGameState();
+      await refreshGameState();
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to start game');
     }
@@ -56,7 +50,7 @@ const Game: React.FC = () => {
     setActionLoading(true);
     try {
       await gamesAPI.executeDevelopment(Number(gameId), currentPlayer.id);
-      await loadGameState();
+      await refreshGameState();
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to execute development');
     } finally {
@@ -72,7 +66,7 @@ const Game: React.FC = () => {
     try {
       const gameAction: GameAction = { action, quantity };
       await gamesAPI.performAction(Number(gameId), currentPlayer.id, gameAction);
-      await loadGameState();
+      await refreshGameState();
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to perform action');
     } finally {
@@ -84,7 +78,7 @@ const Game: React.FC = () => {
     try {
       if (!gameId) return;
       await gamesAPI.nextRound(Number(gameId));
-      await loadGameState();
+      await refreshGameState();
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to advance round');
     }
@@ -103,6 +97,9 @@ const Game: React.FC = () => {
 
   return (
     <div>
+      {/* Connection Status Banner */}
+      <ConnectionStatusBanner status={connectionStatus} onReconnect={reconnect} />
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1>Game #{gameState.game.id}</h1>
         <div>
@@ -129,11 +126,11 @@ const Game: React.FC = () => {
         <div className="card">
           <h3>Your Empire: {currentPlayer.country.name}</h3>
           <PlayerStatus player={currentPlayer} />
-          
+
           {gameState.game.phase === 'development' && !currentPlayer.development_completed && (
             <div style={{ marginTop: '15px' }}>
-              <button 
-                className="btn" 
+              <button
+                className="btn"
                 onClick={executeDevelopment}
                 disabled={actionLoading}
               >
@@ -152,8 +149,8 @@ const Game: React.FC = () => {
           )}
 
           {gameState.game.phase === 'actions' && (
-            <ActionPanel 
-              player={currentPlayer} 
+            <ActionPanel
+              player={currentPlayer}
               onAction={performAction}
               loading={actionLoading}
             />
@@ -169,10 +166,10 @@ const Game: React.FC = () => {
             <div key={player.id} className="card">
               <h4>{player.player.username} - {player.country.name}</h4>
               <PlayerStatus player={player} />
-              
+
               {gameState.game.phase === 'development' && (
                 <div style={{ marginTop: '10px', fontSize: '14px' }}>
-                  <span style={{ 
+                  <span style={{
                     color: player.development_completed ? '#2e7d32' : '#ff9800'
                   }}>
                     Development: {player.development_completed ? 'Completed' : 'Pending'}
@@ -230,6 +227,76 @@ const Game: React.FC = () => {
             Advance to Next Round
           </button>
         </div>
+      )}
+    </div>
+  );
+};
+
+// Connection status banner component
+interface ConnectionStatusBannerProps {
+  status: string;
+  onReconnect: () => void;
+}
+
+const ConnectionStatusBanner: React.FC<ConnectionStatusBannerProps> = ({ status, onReconnect }) => {
+  if (status === 'connected') return null;
+
+  const bannerStyles: Record<string, React.CSSProperties> = {
+    connecting: {
+      backgroundColor: '#fff3cd',
+      color: '#856404',
+      padding: '8px 16px',
+      marginBottom: '16px',
+      borderRadius: '4px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    reconnecting: {
+      backgroundColor: '#fff3cd',
+      color: '#856404',
+      padding: '8px 16px',
+      marginBottom: '16px',
+      borderRadius: '4px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    disconnected: {
+      backgroundColor: '#f8d7da',
+      color: '#721c24',
+      padding: '8px 16px',
+      marginBottom: '16px',
+      borderRadius: '4px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+  };
+
+  const messages: Record<string, string> = {
+    connecting: 'Connecting to game server...',
+    reconnecting: 'Connection lost. Reconnecting...',
+    disconnected: 'Disconnected from game server.',
+  };
+
+  return (
+    <div style={bannerStyles[status] || bannerStyles.disconnected} role="alert">
+      <span>{messages[status] || 'Connection issue'}</span>
+      {status === 'disconnected' && (
+        <button
+          onClick={onReconnect}
+          style={{
+            background: 'none',
+            border: '1px solid #721c24',
+            color: '#721c24',
+            padding: '4px 12px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+          }}
+        >
+          Reconnect
+        </button>
       )}
     </div>
   );
@@ -328,7 +395,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ player, onAction, loading }) 
       </div>
 
       <div style={{ marginTop: '15px', fontSize: '12px', color: '#666' }}>
-        <strong>Remember:</strong> Banks cost 1 gold per round to maintain, but provide stability. 
+        <strong>Remember:</strong> Banks cost 1 gold per round to maintain, but provide stability.
         Each bond without a corresponding bank increases revolt by 1.
       </div>
     </div>

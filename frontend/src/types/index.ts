@@ -102,3 +102,77 @@ export interface AuthToken {
   access_token: string;
   token_type: string;
 }
+
+// WebSocket message types
+
+// Shared payload types
+export interface WsPlayerInfo {
+  id: number;
+  username: string;
+}
+
+// Client → Server messages
+export interface WsPingMessage {
+  type: 'ping';
+}
+
+export interface WsChatOutMessage {
+  type: 'chat';
+  message: string;
+}
+
+export type WsClientMessage = WsPingMessage | WsChatOutMessage;
+
+// Server → Client messages
+export interface WsPlayerJoinedMessage {
+  type: 'player_joined';
+  game_id: number;
+  player: WsPlayerInfo;
+}
+
+export interface WsPlayerLeftMessage {
+  type: 'player_left';
+  game_id: number;
+  player: WsPlayerInfo;
+}
+
+export interface WsGameStateUpdateMessage {
+  type: 'game_state_update';
+  game_id: number;
+  game_state?: GameState;
+}
+
+export interface WsRoundChangedMessage {
+  type: 'round_changed';
+  game_id: number;
+  round: number;
+  phase: Game['phase'];
+}
+
+export interface WsChatInMessage {
+  type: 'chat';
+  game_id: number;
+  player: WsPlayerInfo;
+  message: string;
+}
+
+export interface WsPongMessage {
+  type: 'pong';
+}
+
+export interface WsErrorMessage {
+  type: 'error';
+  message: string;
+}
+
+export type WsServerMessage =
+  | WsPlayerJoinedMessage
+  | WsPlayerLeftMessage
+  | WsGameStateUpdateMessage
+  | WsRoundChangedMessage
+  | WsChatInMessage
+  | WsPongMessage
+  | WsErrorMessage;
+
+// WebSocket connection status
+export type WsConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';

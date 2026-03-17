@@ -16,7 +16,7 @@ Empires is a turn-based strategy game where players:
 This implementation consists of:
 - **Backend**: FastAPI-based REST API with PostgreSQL database
 - **Frontend**: React TypeScript SPA with real-time updates
-- **Database**: PostgreSQL with SQLAlchemy ORM
+- **Database**: PostgreSQL with SQLAlchemy ORM and Alembic migrations
 - **Real-time**: WebSocket connections with PostgreSQL NOTIFY/LISTEN for cross-process event fanout
 - **Deployment**: Docker containers with docker-compose
 
@@ -60,8 +60,10 @@ pip install -r requirements.txt
 docker run -d --name empires-db -e POSTGRES_DB=empires_db -e POSTGRES_USER=empires -e POSTGRES_PASSWORD=empires -p 5432:5432 postgres:15
 ```
 
-3. **Initialize database**
+3. **Initialize database** (runs Alembic migrations and seeds data)
 ```bash
+cd backend
+alembic upgrade head
 python app/init_db.py
 ```
 
@@ -179,7 +181,7 @@ docker-compose down
 - [x] Comprehensive unit tests for game logic
 
 ### Phase 2 - Enhanced Features (🔄 Next)
-- [x] Add WebSocket support for real-time updates
+- [x] Add WebSocket support for real-time updates (backend + frontend hook with reconnection)
 - [ ] Implement trading between players
 - [ ] Add game history and statistics
 - [ ] Create comprehensive API documentation
@@ -196,7 +198,7 @@ docker-compose down
 
 ## Technology Stack
 
-- **Backend**: Python 3.11+, FastAPI, SQLAlchemy, PostgreSQL
+- **Backend**: Python 3.11+, FastAPI, SQLAlchemy, Alembic, PostgreSQL
 - **Frontend**: React 18, TypeScript, Axios
 - **Database**: PostgreSQL 15
 - **Testing**: Pytest (backend), Jest (frontend)
@@ -236,3 +238,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - See [DESIGN.md](DESIGN.md) for complete game rules, API specifications, and implementation details
 - See [COPILOT_INSTRUCTIONS.md](COPILOT_INSTRUCTIONS.md) for development guidelines and architecture decisions
+- See [docs/websocket-api.md](docs/websocket-api.md) for WebSocket API and frontend hook documentation
