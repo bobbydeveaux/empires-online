@@ -63,8 +63,31 @@ ws.onopen = () => {
 };
 ```
 
+## Frontend Hook
+
+The `useGameWebSocket` hook (`frontend/src/hooks/useGameWebSocket.ts`) provides a React-friendly interface for WebSocket connections:
+
+```typescript
+import { useGameWebSocket } from '../hooks/useGameWebSocket';
+
+const { gameState, connectionStatus, reconnect, lastMessage } = useGameWebSocket(gameId);
+```
+
+**Returns:**
+- `gameState` — Current `GameState` (synced via REST on connect and updated via WS messages)
+- `connectionStatus` — One of `'connecting'`, `'connected'`, `'disconnected'`, `'reconnecting'`
+- `reconnect()` — Manually trigger a reconnection (resets backoff)
+- `lastMessage` — The most recent `WsServerMessage` received
+
+**Features:**
+- Automatic exponential backoff reconnection: 1s → 2s → 4s → … → 30s (max)
+- Full game state sync via REST API on every (re)connect
+- Periodic ping keepalive (every 30s)
+- Automatic cleanup on unmount
+
 ## Architecture
 
 - **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms with connect, disconnect, join_room, leave_room, and broadcast_to_room operations.
 - **WebSocket Route** (`backend/app/api/routes/ws.py`): Handles the `/ws/{game_id}` endpoint, JWT validation, and message dispatch.
 - **Nginx Proxy** (`frontend/nginx.conf`): Proxies `/ws/` to the backend with WebSocket upgrade headers and a 24-hour `proxy_read_timeout` to support long-lived connections.
+- **Frontend Hook** (`frontend/src/hooks/useGameWebSocket.ts`): React hook with reconnection logic, state management, and REST sync.
