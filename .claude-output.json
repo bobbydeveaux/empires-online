@@ -1,0 +1,25 @@
+{
+  "prTitle": "feat: replace create_all with Alembic auto-migration on startup",
+  "prBody": "## Summary\n\nReplaces `Base.metadata.create_all()` in `init_db.py` with programmatic Alembic migrations (`alembic upgrade head`) that run automatically on application startup. This completes all three Alembic setup tasks (configure framework, add stability_checked column, replace create_all).\n\n### Changes\n\n- **Alembic configuration**: Added `alembic.ini`, `alembic/env.py`, and `alembic/script.py.mako` with autogenerate support using the app's Base metadata and DATABASE_URL\n- **Game model**: Added `stability_checked` boolean column (default False) to the Game model\n- **Initial migration** (`001_initial_schema.py`): Creates all 5 tables (players, countries, games, spawned_countries, game_history) with proper indexes, foreign keys, and the new stability_checked column\n- **init_db.py**: Replaced `create_all` with `alembic.command.upgrade(config, \"head\")` while preserving all seed data logic (countries + test user)\n- **Documentation**: Added `docs/database-migrations.md` and updated README.md\n\n### How it works\n\nOn startup, `init_db.py` now:\n1. Loads Alembic config and sets the database URL from app settings\n2. Runs `alembic upgrade head` to apply all pending migrations\n3. Seeds countries and test user data (unchanged)\n\nCloses #34",
+  "testsPass": true,
+  "filesChanged": [
+    "backend/alembic.ini",
+    "backend/alembic/env.py",
+    "backend/alembic/script.py.mako",
+    "backend/alembic/versions/001_initial_schema.py",
+    "backend/app/models/models.py",
+    "backend/app/init_db.py",
+    "README.md",
+    "docs/database-migrations.md"
+  ],
+  "docsUpdated": [
+    "docs/database-migrations.md",
+    "README.md"
+  ],
+  "docsReviewed": [
+    "DESIGN.md",
+    "COPILOT_INSTRUCTIONS.md",
+    "docs/websocket-api.md"
+  ],
+  "completedTasks": [1, 2, 3]
+}
