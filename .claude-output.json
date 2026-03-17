@@ -1,14 +1,13 @@
 {
-  "prTitle": "feat: add mobile-responsive layout and no-scroll guarantee",
-  "prBody": "## Summary\n\nAdds comprehensive mobile-responsive CSS and layout changes to ensure the Empires Online frontend works well on mobile devices down to 375px viewport width with no horizontal scrolling.\n\n### Changes\n\n- **Global box-sizing**: Added `box-sizing: border-box` globally to prevent padding from causing overflow\n- **No-scroll guarantee**: Added `overflow-x: hidden` on body element\n- **Navbar**: Migrated from inline styles to CSS classes with `flex-wrap` support; welcome text hidden on mobile to save space\n- **Responsive breakpoints**:\n  - `≤768px`: Single-column grids, stacked page headers and game info bars, full-width buttons, reduced padding\n  - `≤375px`: Further reduced padding and font sizes for smallest viewports\n- **iOS zoom prevention**: Set 16px font-size on form inputs to prevent auto-zoom on focus\n- **Game page**: Game info bar and leaderboard table use responsive wrappers\n- **Lobby page**: Page header and game cards use flex-wrap for mobile stacking\n\n### Review feedback\n\nThe previous review flagged a blocking issue with `broadcast_event()` using `asyncio.get_event_loop()` — this was already fixed in a prior commit. The function is now `async` and directly awaits `_broadcast()`. The unused `Optional` import was also already removed.\n\nCloses #39",
+  "prTitle": "feat: add recruit_people, acquire_territory, stability check with comprehensive unit tests",
+  "prBody": "## Summary\n\nExtends GameLogic with three new capabilities and adds comprehensive test coverage for game logic and WebSocket endpoints.\n\n### Game Logic Changes (`backend/app/services/game_logic.py`)\n- **`recruit_people` action**: Costs 2 gold per person, increments `people` count\n- **`acquire_territory` action**: Costs 3 gold per territory, increments `territories` count\n- **`run_stability_check()` method**: Deducts gold equal to `(revolters - supporters)` when revolters > supporters, floors gold at 0. No-op when supporters >= revolters.\n\n### New Unit Tests (`backend/app/tests/test_game_logic.py`) — 14 new tests\n- `recruit_people`: can_perform_action validation, perform_action execution, insufficient funds\n- `acquire_territory`: can_perform_action validation, perform_action execution, insufficient funds\n- `run_stability_check`: revolters > supporters penalty, supporters >= revolters no-op, equal values, gold floor at 0\n- Unknown action type handling (2 tests)\n\n### New WebSocket Tests (`backend/app/tests/test_ws_endpoint.py`) — 6 new tests\n- **Broadcasting**: Two clients receive broadcasts, chat broadcast to all clients, room isolation between games\n- **Reconnection**: Reconnect after disconnect, room state preserved for other clients during reconnect, Authorization header fallback\n\n### Documentation\n- Updated `docs/websocket-api.md` to list new action types (recruit_people, acquire_territory)\n\n### Review Feedback\n- Verified that `broadcast_event()` is already async (review issue was already fixed in current code)\n- Verified no unused `Optional` import in `game_broadcast.py`\n\nCloses #41",
   "testsPass": true,
   "filesChanged": [
-    "frontend/src/App.css",
-    "frontend/src/components/Navbar.tsx",
-    "frontend/src/pages/Game.tsx",
-    "frontend/src/pages/GameLobby.tsx",
-    "README.md"
+    "backend/app/services/game_logic.py",
+    "backend/app/tests/test_game_logic.py",
+    "backend/app/tests/test_ws_endpoint.py",
+    "docs/websocket-api.md"
   ],
-  "docsUpdated": ["README.md"],
-  "docsReviewed": ["docs/websocket-api.md", "DESIGN.md", "COPILOT_INSTRUCTIONS.md"]
+  "docsUpdated": ["docs/websocket-api.md"],
+  "docsReviewed": ["README.md", "docs/database-migrations.md"]
 }
