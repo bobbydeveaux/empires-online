@@ -1,15 +1,22 @@
 {
-  "prTitle": "feat: implement toast notification system with ToastProvider and useToast hook",
-  "prBody": "## Summary\n\nImplements a toast notification system for displaying action confirmations, errors, and informational messages across the application.\n\n### Changes\n\n- **Toast component** (`frontend/src/components/Toast.tsx`): `ToastProvider` context, `useToast` hook, and toast rendering with success/error/info variants\n- **App.tsx**: Wrapped app with `ToastProvider`\n- **App.css**: Toast styles with slide-in animation, variant colors, and mobile-responsive layout (full-width on ≤768px)\n- **Game.tsx**: Replaced inline error `<div>` with `showToast()` calls for all game actions (start, develop, perform action, advance round), added success confirmations\n- **Tests**: 7 tests covering all variants, auto-dismiss, manual dismiss, multiple toasts, and error when used outside provider\n- **Docs**: Added `docs/toast-notifications.md` with usage guide, updated README roadmap\n\nCloses #38",
+  "prTitle": "feat: add recruit_people, acquire_territory actions and stability check",
+  "prBody": "## Summary\n\nImplements the remaining player actions and stability check for the Empires Online game engine (Phase 2 - Sprint 2).\n\n### Changes\n\n**New Actions in GameLogic (`backend/app/services/game_logic.py`):**\n- `recruit_people`: costs 2 gold, adds 1 person per quantity\n- `acquire_territory`: costs 3 gold, adds 1 territory per quantity\n- Refactored action cost definitions into a centralized `ACTION_COSTS` dictionary\n- `perform_action` now returns `people` and `territories` in `new_state`\n\n**Stability Check (`GameLogic.run_stability_check`):**\n- New method that runs at end of each round\n- If revolters > supporters: deducts gold equal to (revolters - supporters)\n- Gold is floored at 0 (never goes negative)\n- Returns detailed result including stable/unstable status and gold lost\n\n**Integration (`backend/app/api/routes/games.py`):**\n- `next_round` endpoint now runs stability check for all players before advancing\n- Broadcasts `stability_check` event via WebSocket with per-player results\n\n**Broadcasting (`backend/app/services/game_broadcast.py`):**\n- Added `stability_check_message` builder for the new event type\n\n**Tests:**\n- 14 new test cases covering:\n  - recruit_people validation and execution\n  - acquire_territory validation and execution\n  - Unknown action handling\n  - Stability check: stable, equal, unstable, gold floor at 0, zero gold scenarios\n  - New state field verification\n- 1 new broadcast message builder test\n\n**Documentation:**\n- Updated `docs/websocket-api.md` with `stability_check` event type\n- Updated `README.md` with new actions and stability check in feature list\n\n### Review Feedback Addressed\n- `broadcast_event()` async bug was already fixed in prior commit\n- Unused `Optional` import was already removed in prior commit\n\nCloses #35",
   "testsPass": true,
   "filesChanged": [
-    "frontend/src/components/Toast.tsx",
-    "frontend/src/components/Toast.test.tsx",
-    "frontend/src/App.tsx",
-    "frontend/src/App.css",
-    "frontend/src/pages/Game.tsx",
-    "frontend/src/setupTests.ts"
+    "backend/app/services/game_logic.py",
+    "backend/app/services/game_broadcast.py",
+    "backend/app/api/routes/games.py",
+    "backend/app/tests/test_game_logic.py",
+    "backend/app/tests/test_game_broadcast.py",
+    "docs/websocket-api.md",
+    "README.md"
   ],
-  "docsUpdated": ["docs/toast-notifications.md", "README.md"],
-  "docsReviewed": ["docs/websocket-api.md", "docs/database-migrations.md"]
+  "docsUpdated": [
+    "docs/websocket-api.md",
+    "README.md"
+  ],
+  "docsReviewed": [
+    "DESIGN.md",
+    "docs/concepts/empires-online/PRD.md"
+  ]
 }

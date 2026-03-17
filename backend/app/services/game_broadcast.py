@@ -123,6 +123,7 @@ def actions_completed_message(
     }
 
 
+
 def stability_check_message(
     game_id: int,
     results: List[Dict[str, Any]],
@@ -145,6 +146,7 @@ def round_summary_message(
         "round": round_number,
         "summary": summary,
     }
+
 
 
 # ---------------------------------------------------------------------------
