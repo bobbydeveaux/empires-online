@@ -134,26 +134,37 @@ class GameLogic:
 
     @staticmethod
     def run_stability_check(spawned_country: SpawnedCountry) -> Dict[str, Any]:
-        """Run a stability check on a country.
+        """Run stability check at end of round.
 
-        When revolters > supporters, gold is deducted by (revolters - supporters),
-        floored at 0.  When supporters >= revolters, no action is taken.
+        If revolters > supporters, the country loses gold equal to the
+        difference (floored at 0).  Returns a dict describing what happened.
+
+        Per FR-005: deduct gold = (revolters - supporters), floor at 0.
         """
-        if spawned_country.revolters <= spawned_country.supporters:
+        revolters = spawned_country.revolters
+        supporters = spawned_country.supporters
+
+        if revolters <= supporters:
             return {
-                "applied": False,
-                "penalty": 0,
-                "new_gold": spawned_country.gold,
+                "stable": True,
+                "gold_lost": 0,
+                "revolters": revolters,
+                "supporters": supporters,
             }
 
-        penalty = spawned_country.revolters - spawned_country.supporters
-        new_gold = max(0, spawned_country.gold - penalty)
-        spawned_country.gold = new_gold
+        excess = revolters - supporters
+        gold_before = spawned_country.gold
+        gold_lost = min(excess, gold_before)  # Cannot lose more than you have
+        spawned_country.gold = max(0, gold_before - excess)
 
         return {
-            "applied": True,
-            "penalty": penalty,
-            "new_gold": new_gold,
+            "stable": False,
+            "gold_lost": gold_lost,
+            "excess_revolters": excess,
+            "gold_before": gold_before,
+            "gold_after": spawned_country.gold,
+            "revolters": revolters,
+            "supporters": supporters,
         }
 
     @staticmethod
@@ -173,12 +184,6 @@ class GameLogic:
             return spawned_country.gold >= (2 * quantity)
         elif action == "acquire_territory":
             # Acquire territory costs 3 gold each
-            return spawned_country.gold >= (3 * quantity)
-        elif action == "recruit_people":
-            # Recruiting costs 2 gold per person
-            return spawned_country.gold >= (2 * quantity)
-        elif action == "acquire_territory":
-            # Acquiring territory costs 3 gold each
             return spawned_country.gold >= (3 * quantity)
 
         return False
