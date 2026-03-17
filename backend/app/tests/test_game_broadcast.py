@@ -11,6 +11,7 @@ from app.services.game_broadcast import (
     round_advanced_message,
     game_completed_message,
     player_joined_game_message,
+    game_state_update_message,
     actions_completed_message,
     stability_check_message,
     round_summary_message,
@@ -105,6 +106,23 @@ class TestMessageBuilders:
             "country_name": "Germany",
         }
 
+    def test_game_state_update_message_with_state(self):
+        fake_state = {"game": {"id": 1}, "players": [], "leaderboard": []}
+        msg = game_state_update_message(game_id=1, game_state=fake_state)
+        assert msg == {
+            "type": "game_state_update",
+            "game_id": 1,
+            "game_state": fake_state,
+        }
+
+    def test_game_state_update_message_without_state(self):
+        msg = game_state_update_message(game_id=1)
+        assert msg == {
+            "type": "game_state_update",
+            "game_id": 1,
+        }
+        assert "game_state" not in msg
+
     def test_actions_completed_message(self):
         msg = actions_completed_message(
             game_id=1,
@@ -142,7 +160,6 @@ class TestMessageBuilders:
             "round": 2,
             "summary": summary,
         }
-
 
 
 class TestBroadcast:

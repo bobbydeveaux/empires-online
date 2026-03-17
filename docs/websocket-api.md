@@ -61,12 +61,12 @@ These messages are broadcast from REST endpoints when game state changes occur, 
 | `round_summary` | `{"game_id", "round", "summary": [{"player_id", "player_name", "country_name", "actions": [...]}]}` | Per-player summary of all actions taken during the round |
 | `round_advanced` | `{"game_id", "round", "phase"}` | The game advanced to a new round |
 | `game_completed` | `{"game_id", "leaderboard": [...]}` | The game ended; includes the final leaderboard |
+| `game_state_update` | `{"game_id", "game_state?": GameState}` | Full game state push after actions and phase transitions |
 
 #### Reserved / Future Server → Client
 
 | Type | Payload | Description |
 |------|---------|-------------|
-| `game_state_update` | `{"game_id", "game_state?": GameState}` | Full or partial game state push |
 | `round_changed` | `{"game_id", "round", "phase"}` | Round/phase transition notification |
 
 ## Example (JavaScript)
@@ -121,7 +121,8 @@ const { gameState, connectionStatus, reconnect, refreshGameState } = useGameWebS
 **Behavior:**
 - Connects to `WS /ws/{gameId}?token=<jwt>` on mount
 - Fetches full game state via REST on connect and reconnect
-- Refetches state when `player_joined`, `player_left`, `round_changed`, or `game_state_update` messages arrive
+- On `game_state_update`, applies the included `game_state` directly (or refetches via REST if absent)
+- Refetches state when `player_joined`, `player_left`, or `round_changed` messages arrive
 - Implements exponential backoff reconnection (1s, 2s, 4s, ... up to 30s max)
 - Does not reconnect on auth failure (close code 1008)
 - Sends ping keepalive every 25 seconds
@@ -160,7 +161,7 @@ Both `Game.tsx` and `GameLobby.tsx` display a visual connection status indicator
 ## Architecture
 
 - **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms with connect, disconnect, join_room, leave_room, and broadcast_to_room operations. Includes PostgreSQL NOTIFY/LISTEN support for cross-process event fanout.
-- **GameBroadcast** (`backend/app/services/game_broadcast.py`): Provides message builders for each game event type and a `broadcast_event()` function that schedules broadcasts as FastAPI `BackgroundTasks` from synchronous REST handlers.
+- **GameBroadcast** (`backend/app/services/game_broadcast.py`): Provides message builders for each game event type (including `game_state_update` with full game state) and an async `broadcast_event()` function used as a FastAPI `BackgroundTask`.
 - **WebSocket Route** (`backend/app/api/routes/ws.py`): Handles the `/ws/{game_id}` endpoint, JWT validation, and message dispatch.
 - **Game REST Routes** (`backend/app/api/routes/games.py`): State-changing endpoints (join, start, develop, actions, end-actions, next-round) broadcast game events via `BackgroundTasks` after committing database changes. The end-actions endpoint triggers auto phase transitions when all players complete.
 - **useGameWebSocket** (`frontend/src/hooks/useGameWebSocket.ts`): React hook that manages WebSocket lifecycle, reconnection, and state synchronization.
@@ -171,9 +172,10 @@ Both `Game.tsx` and `GameLobby.tsx` display a visual connection status indicator
 
 1. Client calls a REST endpoint (e.g., `POST /api/games/{id}/start`)
 2. The endpoint processes the request and commits database changes
-3. A broadcast task is added to FastAPI's `BackgroundTasks`
-4. The REST response is returned to the caller
-5. The background task sends a WebSocket message to all clients in the game room
+3. Event-specific broadcast tasks are added (e.g., `game_started`, `action_performed`)
+4. A `game_state_update` broadcast with full game state is added so clients can refresh their UI
+5. The REST response is returned to the caller
+6. Background tasks send WebSocket messages to all clients in the game room
 
 ### Cross-Process Event Fanout (PostgreSQL NOTIFY/LISTEN)
 
