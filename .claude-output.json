@@ -1,0 +1,9 @@
+{
+  "prTitle": "fix: remove duplicate Alembic migration and address review feedback",
+  "prBody": "## Summary\n\nAddresses all review feedback from prior code review:\n\n1. **CRITICAL: `broadcast_event()` silent failure** — Already fixed in previous iteration. The function is now `async` and properly awaits `_broadcast()`, so FastAPI can schedule it correctly as an async background task.\n\n2. **Unused `Optional` import** — Already removed in previous iteration.\n\n3. **Duplicate migration file removed** — `001_add_stability_checked.py` was redundant because `001_initial_schema.py` already creates the `games` table with the `stability_checked` column included. Both files had the same revision ID (`001`) and `down_revision=None`, which would cause Alembic to error on startup with a duplicate head.\n\nThe single consolidated migration `001_initial_schema.py` correctly includes all tables and the `stability_checked` column on `games`.\n\nCloses #19",
+  "testsPass": true,
+  "filesChanged": ["backend/alembic/versions/001_add_stability_checked.py"],
+  "docsUpdated": [],
+  "docsReviewed": ["docs/database-migrations.md", "README.md"],
+  "completedTasks": [1, 2]
+}
