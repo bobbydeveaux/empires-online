@@ -55,7 +55,8 @@ These messages are broadcast from REST endpoints when game state changes occur, 
 | `game_started` | `{"game_id", "phase"}` | The game was started by the creator |
 | `development_completed` | `{"game_id", "player": {"id", "username"}, "completed_count", "total_count"}` | A player completed their development phase |
 | `phase_changed` | `{"game_id", "phase"}` | The game phase transitioned (e.g., development → actions) |
-| `action_performed` | `{"game_id", "player": {"id", "username"}, "action", "quantity"}` | A player performed an action (buy_bond, build_bank) |
+| `action_performed` | `{"game_id", "player": {"id", "username"}, "action", "quantity"}` | A player performed an action (buy_bond, build_bank, recruit_people, acquire_territory) |
+| `stability_check` | `{"game_id", "results": [{"player_id", "player_name", "stable", "gold_lost", ...}]}` | Stability check results for all players at round end |
 | `round_advanced` | `{"game_id", "round", "phase"}` | The game advanced to a new round |
 | `game_completed` | `{"game_id", "leaderboard": [...]}` | The game ended; includes the final leaderboard |
 

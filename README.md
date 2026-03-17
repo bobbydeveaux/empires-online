@@ -89,8 +89,8 @@ npm start
 
 ### Core Game Loop
 1. **Development Phase** (automatic): Calculate luxuries, industries, unemployment, banking costs
-2. **Action Phase** (optional): Players can buy bonds, build banks, trade resources
-3. **Round End**: Update state, check stability, prepare for next round
+2. **Action Phase** (optional): Players can buy bonds, build banks, recruit people, acquire territories
+3. **Round End**: Run stability check (revolters > supporters → lose gold), prepare for next round
 4. **Game End**: Calculate victory points after all rounds
 
 ### Development Algorithm
@@ -182,8 +182,11 @@ docker-compose down
 - [x] Docker containers and docker-compose setup
 - [x] Comprehensive unit tests for game logic
 
-### Phase 2 - Enhanced Features (🔄 Next)
+### Phase 2 - Enhanced Features (🔄 In Progress)
 - [x] Add WebSocket support for real-time updates (backend + frontend hook with reconnection)
+- [x] Recruit people action (costs 2 gold, adds 1 person)
+- [x] Acquire territory action (costs 3 gold, adds 1 territory)
+- [x] Stability check at round end (revolters > supporters → lose gold)
 - [ ] Implement trading between players
 - [ ] Add game history and statistics
 - [ ] Create comprehensive API documentation
