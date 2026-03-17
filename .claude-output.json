@@ -1,0 +1,14 @@
+{
+  "prTitle": "feat: add recruit/acquire buttons, toast notifications, and round summary display",
+  "prBody": "## Summary\n\nAdds recruit people and acquire territory action buttons to the ActionPanel in Game.tsx, implements toast notifications for action feedback, and adds a round summary display showing per-player resource deltas between rounds.\n\n### Changes\n\n- **Backend**: Extended `GameLogic.can_perform_action()` and `perform_action()` to support `recruit_people` (2 gold/person) and `acquire_territory` (3 gold/territory)\n- **Frontend - ActionPanel**: Added Recruit People and Acquire Territory buttons with quantity inputs, cost display, and insufficient gold warnings\n- **Frontend - Toast Notifications**: Added a lightweight toast notification system (success/error) with slide-in animation and auto-dismiss after 4 seconds\n- **Frontend - Round Summary**: Added a RoundSummaryDisplay component that tracks game state between rounds and shows per-player deltas for gold, territories, people, supporters, and revolters with color-coded positive/negative indicators\n- **CSS**: Added responsive styles for action cards, toast container, round summary table; all new elements collapse to single-column at <=768px\n- **Docs**: Updated README.md and websocket-api.md to reflect new action types\n\n### Review Feedback Addressed\n\n- The `broadcast_event()` async issue was already fixed in the current codebase (function is async and awaits `_broadcast`)\n- The unused `Optional` import was already removed\n\nCloses #40",
+  "testsPass": true,
+  "filesChanged": [
+    "backend/app/services/game_logic.py",
+    "frontend/src/pages/Game.tsx",
+    "frontend/src/App.css",
+    "README.md",
+    "docs/websocket-api.md"
+  ],
+  "docsUpdated": ["README.md", "docs/websocket-api.md"],
+  "docsReviewed": ["docs/websocket-api.md", "docs/database-migrations.md", "docs/concepts/empires-online/PRD.md", "docs/concepts/empires-online/HLD.md"]
+}
