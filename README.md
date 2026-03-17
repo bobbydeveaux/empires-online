@@ -143,6 +143,8 @@ Instability Penalty = If revolters > supporters, multiply total by 0.5
 
 ### WebSocket
 - `WS /ws/{game_id}?token=<jwt>` - Real-time game updates (JWT required via query param or Authorization header)
+- Game state changes (join, start, development, actions, round advance, game completion) are broadcast to all connected clients in real-time
+- See [docs/websocket-api.md](docs/websocket-api.md) for full message type reference
 
 ## Testing
 

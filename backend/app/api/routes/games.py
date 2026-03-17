@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
@@ -19,9 +19,42 @@ from app.schemas.schemas import (
 )
 from app.api.routes.auth import get_current_user
 from app.services.game_logic import GameLogic
+from app.services.game_broadcast import (
+    broadcast_event,
+    game_started_message,
+    development_completed_message,
+    phase_changed_message,
+    action_performed_message,
+    round_advanced_message,
+    game_completed_message,
+    player_joined_game_message,
+)
 import json
 
 router = APIRouter()
+
+
+def _build_leaderboard(db: Session, game_id: int) -> list:
+    """Build the leaderboard for a game (used for game_completed broadcasts)."""
+    spawned_countries = (
+        db.query(SpawnedCountry).filter(SpawnedCountry.game_id == game_id).all()
+    )
+    leaderboard = []
+    for sc in spawned_countries:
+        country = db.query(Country).filter(Country.id == sc.country_id).first()
+        player = db.query(Player).filter(Player.id == sc.player_id).first()
+        victory_points = GameLogic.calculate_victory_points(sc)
+        leaderboard.append(
+            {
+                "player_id": sc.player_id,
+                "player_name": player.username,
+                "country_name": country.name,
+                "score": victory_points["total_score"],
+                "breakdown": victory_points["breakdown"],
+            }
+        )
+    leaderboard.sort(key=lambda x: x["score"], reverse=True)
+    return leaderboard
 
 
 @router.post("/", response_model=GameSchema)
@@ -113,6 +146,7 @@ def get_game_state(
 def join_game(
     game_id: int,
     join_data: GameJoin,
+    background_tasks: BackgroundTasks,
     current_user: Player = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -172,6 +206,18 @@ def join_game(
     db.commit()
     db.refresh(spawned_country)
 
+    # Broadcast player joined game event
+    background_tasks.add_task(
+        broadcast_event,
+        game_id,
+        player_joined_game_message(
+            game_id=game_id,
+            player_id=current_user.id,
+            username=current_user.username,
+            country_name=country.name,
+        ),
+    )
+
     return {
         "spawned_country_id": spawned_country.id,
         "message": "Joined game successfully",
@@ -181,6 +227,7 @@ def join_game(
 @router.post("/{game_id}/start")
 def start_game(
     game_id: int,
+    background_tasks: BackgroundTasks,
     current_user: Player = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -209,6 +256,13 @@ def start_game(
     game.started_at = func.now()
     db.commit()
 
+    # Broadcast game started event
+    background_tasks.add_task(
+        broadcast_event,
+        game_id,
+        game_started_message(game_id=game_id, phase="development"),
+    )
+
     return {"status": "started", "current_phase": "development"}
 
 
@@ -219,6 +273,7 @@ def start_game(
 def execute_development(
     game_id: int,
     spawned_country_id: int,
+    background_tasks: BackgroundTasks,
     current_user: Player = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -286,10 +341,30 @@ def execute_development(
         .count()
     )
 
+    # Broadcast development completed event
+    background_tasks.add_task(
+        broadcast_event,
+        game_id,
+        development_completed_message(
+            game_id=game_id,
+            player_id=current_user.id,
+            username=current_user.username,
+            completed_count=completed_players,
+            total_count=total_players,
+        ),
+    )
+
     if completed_players == total_players:
         # Move to actions phase
         game.phase = "actions"
         db.commit()
+
+        # Broadcast phase change event
+        background_tasks.add_task(
+            broadcast_event,
+            game_id,
+            phase_changed_message(game_id=game_id, new_phase="actions"),
+        )
 
     return DevelopmentResult(
         success=True, new_state=result["new_state"], changes=result["changes"]
@@ -303,6 +378,7 @@ def perform_action(
     game_id: int,
     spawned_country_id: int,
     action_data: GameAction,
+    background_tasks: BackgroundTasks,
     current_user: Player = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -346,12 +422,26 @@ def perform_action(
         db.add(history_entry)
         db.commit()
 
+        # Broadcast action performed event
+        background_tasks.add_task(
+            broadcast_event,
+            game_id,
+            action_performed_message(
+                game_id=game_id,
+                player_id=current_user.id,
+                username=current_user.username,
+                action=action_data.action,
+                quantity=action_data.quantity,
+            ),
+        )
+
     return ActionResult(**result)
 
 
 @router.post("/{game_id}/next-round")
 def next_round(
     game_id: int,
+    background_tasks: BackgroundTasks,
     current_user: Player = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -385,8 +475,30 @@ def next_round(
 
     db.commit()
 
+    new_round_number = game.rounds - game.rounds_remaining + 1
+
+    if game.phase == "completed":
+        # Broadcast game completed with final leaderboard
+        leaderboard = _build_leaderboard(db, game_id)
+        background_tasks.add_task(
+            broadcast_event,
+            game_id,
+            game_completed_message(game_id=game_id, leaderboard=leaderboard),
+        )
+    else:
+        # Broadcast round advanced event
+        background_tasks.add_task(
+            broadcast_event,
+            game_id,
+            round_advanced_message(
+                game_id=game_id,
+                new_round=new_round_number,
+                phase=game.phase,
+            ),
+        )
+
     return {
-        "message": f"Advanced to round {game.rounds - game.rounds_remaining + 1}",
+        "message": f"Advanced to round {new_round_number}",
         "phase": game.phase,
     }
 
@@ -398,25 +510,4 @@ def get_leaderboard(game_id: int, db: Session = Depends(get_db)):
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
 
-    spawned_countries = (
-        db.query(SpawnedCountry).filter(SpawnedCountry.game_id == game_id).all()
-    )
-    leaderboard = []
-
-    for sc in spawned_countries:
-        country = db.query(Country).filter(Country.id == sc.country_id).first()
-        player = db.query(Player).filter(Player.id == sc.player_id).first()
-        victory_points = GameLogic.calculate_victory_points(sc)
-
-        leaderboard.append(
-            {
-                "player_id": sc.player_id,
-                "player_name": player.username,
-                "country_name": country.name,
-                "score": victory_points["total_score"],
-                "breakdown": victory_points["breakdown"],
-            }
-        )
-
-    leaderboard.sort(key=lambda x: x["score"], reverse=True)
-    return leaderboard
+    return _build_leaderboard(db, game_id)
