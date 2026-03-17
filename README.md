@@ -154,6 +154,14 @@ cd backend
 python -m pytest app/tests/ -v
 ```
 
+### Backend Tests with Coverage
+```bash
+cd backend
+python -m pytest --cov=app --cov-report=term-missing app/tests/ -v
+```
+
+Coverage target: **≥ 80%**
+
 ### Frontend Tests
 ```bash
 cd frontend
@@ -181,6 +189,7 @@ docker-compose down
 - [x] Full CI/CD pipeline with GitHub Actions
 - [x] Docker containers and docker-compose setup
 - [x] Comprehensive unit tests for game logic
+- [x] Integration tests with coverage target (≥80%)
 
 ### Phase 2 - Enhanced Features (🔄 Next)
 - [x] Add WebSocket support for real-time updates (backend + frontend hook with reconnection)
@@ -203,7 +212,7 @@ docker-compose down
 - **Backend**: Python 3.11+, FastAPI, SQLAlchemy, Alembic, PostgreSQL
 - **Frontend**: React 18, TypeScript, Axios
 - **Database**: PostgreSQL 15
-- **Testing**: Pytest (backend), Jest (frontend)
+- **Testing**: Pytest + pytest-cov (backend), Jest (frontend)
 - **Deployment**: Docker, Docker Compose
 - **CI/CD**: GitHub Actions
 
