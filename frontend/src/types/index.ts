@@ -136,26 +136,10 @@ export interface WsPlayerLeftMessage {
   player: WsPlayerInfo;
 }
 
-export interface WsPongMessage {
-  type: 'pong';
-}
-
-export interface WsChatInMessage {
-  type: 'chat';
-  game_id: number;
-  player: WsPlayerInfo;
-  message: string;
-}
-
-export interface WsErrorMessage {
-  type: 'error';
-  message: string;
-}
-
 export interface WsGameStateUpdateMessage {
   type: 'game_state_update';
   game_id: number;
-  game_state: GameState;
+  game_state?: GameState;
 }
 
 export interface WsRoundChangedMessage {
@@ -165,11 +149,30 @@ export interface WsRoundChangedMessage {
   phase: Game['phase'];
 }
 
+export interface WsChatInMessage {
+  type: 'chat';
+  game_id: number;
+  player: WsPlayerInfo;
+  message: string;
+}
+
+export interface WsPongMessage {
+  type: 'pong';
+}
+
+export interface WsErrorMessage {
+  type: 'error';
+  message: string;
+}
+
 export type WsServerMessage =
   | WsPlayerJoinedMessage
   | WsPlayerLeftMessage
-  | WsPongMessage
-  | WsChatInMessage
-  | WsErrorMessage
   | WsGameStateUpdateMessage
-  | WsRoundChangedMessage;
+  | WsRoundChangedMessage
+  | WsChatInMessage
+  | WsPongMessage
+  | WsErrorMessage;
+
+// WebSocket connection status
+export type WsConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
