@@ -1,18 +1,48 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { GameState, SpawnedCountryWithDetails, GameAction, WsServerMessage } from '../types';
 import { gamesAPI } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { useGameWebSocket } from '../hooks/useGameWebSocket';
+// Toast notification types
+interface Toast {
+  id: number;
+  message: string;
+  type: 'success' | 'error';
+}
+
+// Round summary delta per player
+interface PlayerDelta {
+  playerName: string;
+  countryName: string;
+  goldDelta: number;
+  territoriesDelta: number;
+  peopleDelta: number;
+  supportersDelta: number;
+  revoltersDelta: number;
+}
+
+let toastIdCounter = 0;
 
 const Game: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
   const { user } = useAuth();
-  const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [roundSummary, setRoundSummary] = useState<PlayerDelta[] | null>(null);
+  const previousStateRef = useRef<GameState | null>(null);
+  const previousRoundRef = useRef<number | null>(null);
 
   const token = localStorage.getItem('authToken');
   const numericGameId = gameId ? Number(gameId) : null;
+
+  const addToast = useCallback((message: string, type: 'success' | 'error') => {
+    const id = ++toastIdCounter;
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  }, []);
 
   const handleWsMessage = useCallback((message: WsServerMessage) => {
     if (message.type === 'error') {
@@ -26,6 +56,33 @@ const Game: React.FC = () => {
     onMessage: handleWsMessage,
   });
 
+  // Track round changes and compute round summary
+  useEffect(() => {
+    if (!gameState) return;
+
+    const currentRound = gameState.game.rounds - gameState.game.rounds_remaining + 1;
+
+    if (previousRoundRef.current !== null && currentRound > previousRoundRef.current && previousStateRef.current) {
+      // Round changed — compute deltas
+      const deltas: PlayerDelta[] = gameState.players.map(player => {
+        const prev = previousStateRef.current?.players.find(p => p.id === player.id);
+        return {
+          playerName: player.player.username,
+          countryName: player.country.name,
+          goldDelta: player.gold - (prev?.gold ?? player.gold),
+          territoriesDelta: player.territories - (prev?.territories ?? player.territories),
+          peopleDelta: player.people - (prev?.people ?? player.people),
+          supportersDelta: player.supporters - (prev?.supporters ?? player.supporters),
+          revoltersDelta: player.revolters - (prev?.revolters ?? player.revolters),
+        };
+      });
+      setRoundSummary(deltas);
+    }
+
+    previousStateRef.current = gameState;
+    previousRoundRef.current = currentRound;
+  }, [gameState]);
+
   const loading = gameState === null && connectionStatus !== 'disconnected';
 
   const getCurrentPlayer = (): SpawnedCountryWithDetails | null => {
@@ -38,8 +95,9 @@ const Game: React.FC = () => {
       if (!gameId) return;
       await gamesAPI.startGame(Number(gameId));
       await refreshGameState();
+      addToast('Game started!', 'success');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to start game');
+      addToast(err.response?.data?.detail || 'Failed to start game', 'error');
     }
   };
 
@@ -51,8 +109,9 @@ const Game: React.FC = () => {
     try {
       await gamesAPI.executeDevelopment(Number(gameId), currentPlayer.id);
       await refreshGameState();
+      addToast('Development completed!', 'success');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to execute development');
+      addToast(err.response?.data?.detail || 'Failed to execute development', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -67,8 +126,15 @@ const Game: React.FC = () => {
       const gameAction: GameAction = { action, quantity };
       await gamesAPI.performAction(Number(gameId), currentPlayer.id, gameAction);
       await refreshGameState();
+      const actionLabels: Record<string, string> = {
+        buy_bond: 'Bonds purchased',
+        build_bank: 'Banks built',
+        recruit_people: 'People recruited',
+        acquire_territory: 'Territory acquired',
+      };
+      addToast(`${actionLabels[action] || 'Action completed'} (x${quantity})`, 'success');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to perform action');
+      addToast(err.response?.data?.detail || 'Failed to perform action', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -79,8 +145,9 @@ const Game: React.FC = () => {
       if (!gameId) return;
       await gamesAPI.nextRound(Number(gameId));
       await refreshGameState();
+      addToast('Advanced to next round', 'success');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to advance round');
+      addToast(err.response?.data?.detail || 'Failed to advance round', 'error');
     }
   };
 
@@ -97,18 +164,33 @@ const Game: React.FC = () => {
 
   return (
     <div>
+      {/* Toast Notifications */}
+      <div className="toast-container">
+        {toasts.map(toast => (
+          <div key={toast.id} className={`toast toast-${toast.type}`}>
+            {toast.message}
+          </div>
+        ))}
+      </div>
+
       {/* Connection Status Banner */}
       <ConnectionStatusBanner status={connectionStatus} onReconnect={reconnect} />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>Game #{gameState.game.id}</h1>
+      <div className="game-info-bar">
+        <h1 style={{ margin: 0 }}>Game #{gameState.game.id}</h1>
         <div>
           <strong>Round:</strong> {gameState.game.rounds - gameState.game.rounds_remaining + 1} / {gameState.game.rounds} |{' '}
           <strong>Phase:</strong> {gameState.game.phase}
         </div>
       </div>
 
-      {error && <div className="error">{error}</div>}
+      {/* Round Summary */}
+      {roundSummary && (
+        <RoundSummaryDisplay
+          deltas={roundSummary}
+          onDismiss={() => setRoundSummary(null)}
+        />
+      )}
 
       {/* Game Controls */}
       {gameState.game.phase === 'waiting' && isCreator && (
@@ -184,7 +266,7 @@ const Game: React.FC = () => {
       {/* Leaderboard */}
       <div className="card">
         <h3>Current Leaderboard</h3>
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-responsive">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #ddd' }}>
@@ -337,9 +419,13 @@ interface ActionPanelProps {
 const ActionPanel: React.FC<ActionPanelProps> = ({ player, onAction, loading }) => {
   const [bondQuantity, setBondQuantity] = useState(1);
   const [bankQuantity, setBankQuantity] = useState(1);
+  const [recruitQuantity, setRecruitQuantity] = useState(1);
+  const [territoryQuantity, setTerritoryQuantity] = useState(1);
 
   const canBuyBonds = player.gold >= (bondQuantity * 2);
   const canBuildBanks = player.gold >= (bankQuantity * 3);
+  const canRecruit = player.gold >= (recruitQuantity * 2);
+  const canAcquireTerritory = player.gold >= (territoryQuantity * 3);
 
   return (
     <div style={{ marginTop: '15px' }}>
@@ -349,17 +435,17 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ player, onAction, loading }) 
       </p>
 
       <div className="grid grid-2">
-        <div>
+        <div className="action-card">
           <h5>Buy Bonds (2 gold each)</h5>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+          <div className="action-input-row">
             <input
               type="number"
               min="1"
               value={bondQuantity}
-              onChange={(e) => setBondQuantity(Number(e.target.value))}
-              style={{ width: '60px' }}
+              onChange={(e) => setBondQuantity(Math.max(1, Number(e.target.value)))}
+              className="action-quantity-input"
             />
-            <span>bonds for {bondQuantity * 2} gold</span>
+            <span className="action-cost-label">bonds for {bondQuantity * 2} gold</span>
           </div>
           <button
             className="btn"
@@ -368,20 +454,20 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ player, onAction, loading }) 
           >
             Buy Bonds
           </button>
-          {!canBuyBonds && <div style={{ fontSize: '12px', color: '#d32f2f' }}>Insufficient gold</div>}
+          {!canBuyBonds && <div className="action-insufficient">Insufficient gold</div>}
         </div>
 
-        <div>
+        <div className="action-card">
           <h5>Build Banks (3 gold each)</h5>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+          <div className="action-input-row">
             <input
               type="number"
               min="1"
               value={bankQuantity}
-              onChange={(e) => setBankQuantity(Number(e.target.value))}
-              style={{ width: '60px' }}
+              onChange={(e) => setBankQuantity(Math.max(1, Number(e.target.value)))}
+              className="action-quantity-input"
             />
-            <span>banks for {bankQuantity * 3} gold</span>
+            <span className="action-cost-label">banks for {bankQuantity * 3} gold</span>
           </div>
           <button
             className="btn"
@@ -390,13 +476,135 @@ const ActionPanel: React.FC<ActionPanelProps> = ({ player, onAction, loading }) 
           >
             Build Banks
           </button>
-          {!canBuildBanks && <div style={{ fontSize: '12px', color: '#d32f2f' }}>Insufficient gold</div>}
+          {!canBuildBanks && <div className="action-insufficient">Insufficient gold</div>}
+        </div>
+
+        <div className="action-card">
+          <h5>Recruit People (2 gold each)</h5>
+          <div className="action-input-row">
+            <input
+              type="number"
+              min="1"
+              value={recruitQuantity}
+              onChange={(e) => setRecruitQuantity(Math.max(1, Number(e.target.value)))}
+              className="action-quantity-input"
+            />
+            <span className="action-cost-label">people for {recruitQuantity * 2} gold</span>
+          </div>
+          <button
+            className="btn btn-recruit"
+            onClick={() => onAction('recruit_people', recruitQuantity)}
+            disabled={loading || !canRecruit}
+          >
+            Recruit People
+          </button>
+          {!canRecruit && <div className="action-insufficient">Insufficient gold</div>}
+          <div className="action-hint">More people = more industries and luxury production.</div>
+        </div>
+
+        <div className="action-card">
+          <h5>Acquire Territory (3 gold each)</h5>
+          <div className="action-input-row">
+            <input
+              type="number"
+              min="1"
+              value={territoryQuantity}
+              onChange={(e) => setTerritoryQuantity(Math.max(1, Number(e.target.value)))}
+              className="action-quantity-input"
+            />
+            <span className="action-cost-label">territories for {territoryQuantity * 3} gold</span>
+          </div>
+          <button
+            className="btn btn-territory"
+            onClick={() => onAction('acquire_territory', territoryQuantity)}
+            disabled={loading || !canAcquireTerritory}
+          >
+            Acquire Territory
+          </button>
+          {!canAcquireTerritory && <div className="action-insufficient">Insufficient gold</div>}
+          <div className="action-hint">More territory = more goods and industrial capacity.</div>
         </div>
       </div>
 
       <div style={{ marginTop: '15px', fontSize: '12px', color: '#666' }}>
         <strong>Remember:</strong> Banks cost 1 gold per round to maintain, but provide stability.
         Each bond without a corresponding bank increases revolt by 1.
+      </div>
+    </div>
+  );
+};
+
+// Round summary display component
+interface RoundSummaryDisplayProps {
+  deltas: PlayerDelta[];
+  onDismiss: () => void;
+}
+
+const RoundSummaryDisplay: React.FC<RoundSummaryDisplayProps> = ({ deltas, onDismiss }) => {
+  const formatDelta = (value: number): string => {
+    if (value > 0) return `+${value}`;
+    if (value < 0) return `${value}`;
+    return '0';
+  };
+
+  const deltaColor = (value: number, invert?: boolean): string => {
+    const positive = invert ? value < 0 : value > 0;
+    const negative = invert ? value > 0 : value < 0;
+    if (positive) return '#2e7d32';
+    if (negative) return '#d32f2f';
+    return '#666';
+  };
+
+  return (
+    <div className="card round-summary">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3>Round Summary</h3>
+        <button className="btn-secondary btn-sm" onClick={onDismiss}>
+          Dismiss
+        </button>
+      </div>
+      <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
+        Changes from last round:
+      </p>
+      <div style={{ overflowX: 'auto' }}>
+        <table className="round-summary-table">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>Gold</th>
+              <th>Territories</th>
+              <th>People</th>
+              <th>Supporters</th>
+              <th>Revolters</th>
+            </tr>
+          </thead>
+          <tbody>
+            {deltas.map(delta => (
+              <tr key={delta.playerName}>
+                <td>
+                  <strong>{delta.playerName}</strong>
+                  <br />
+                  <span style={{ fontSize: '12px', color: '#666' }}>{delta.countryName}</span>
+                </td>
+                <td style={{ color: deltaColor(delta.goldDelta) }}>
+                  {formatDelta(delta.goldDelta)}
+                </td>
+                <td style={{ color: deltaColor(delta.territoriesDelta) }}>
+                  {formatDelta(delta.territoriesDelta)}
+                </td>
+                <td style={{ color: deltaColor(delta.peopleDelta) }}>
+                  {formatDelta(delta.peopleDelta)}
+                </td>
+                <td style={{ color: deltaColor(delta.supportersDelta) }}>
+                  {formatDelta(delta.supportersDelta)}
+                </td>
+                <td style={{ color: deltaColor(delta.revoltersDelta, true) }}>
+                  {formatDelta(delta.revoltersDelta)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

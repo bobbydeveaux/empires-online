@@ -55,7 +55,10 @@ These messages are broadcast from REST endpoints when game state changes occur, 
 | `game_started` | `{"game_id", "phase"}` | The game was started by the creator |
 | `development_completed` | `{"game_id", "player": {"id", "username"}, "completed_count", "total_count"}` | A player completed their development phase |
 | `phase_changed` | `{"game_id", "phase"}` | The game phase transitioned (e.g., development → actions) |
-| `action_performed` | `{"game_id", "player": {"id", "username"}, "action", "quantity"}` | A player performed an action (buy_bond, build_bank) |
+| `action_performed` | `{"game_id", "player": {"id", "username"}, "action", "quantity"}` | A player performed an action (buy_bond, build_bank, recruit_people, acquire_territory) |
+| `actions_completed` | `{"game_id", "player": {"id", "username"}, "completed_count", "total_count"}` | A player ended their actions phase |
+| `stability_check` | `{"game_id", "results": [{"player_id", "player_name", "country_name", "stable", "gold_lost", ...}]}` | Stability check results at end of round |
+| `round_summary` | `{"game_id", "round", "summary": [{"player_id", "player_name", "country_name", "actions": [...]}]}` | Per-player summary of all actions taken during the round |
 | `round_advanced` | `{"game_id", "round", "phase"}` | The game advanced to a new round |
 | `game_completed` | `{"game_id", "leaderboard": [...]}` | The game ended; includes the final leaderboard |
 | `game_state_update` | `{"game_id", "game_state?": GameState}` | Full game state push after actions and phase transitions |
@@ -160,7 +163,7 @@ Both `Game.tsx` and `GameLobby.tsx` display a visual connection status indicator
 - **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms with connect, disconnect, join_room, leave_room, and broadcast_to_room operations. Includes PostgreSQL NOTIFY/LISTEN support for cross-process event fanout.
 - **GameBroadcast** (`backend/app/services/game_broadcast.py`): Provides message builders for each game event type (including `game_state_update` with full game state) and an async `broadcast_event()` function used as a FastAPI `BackgroundTask`.
 - **WebSocket Route** (`backend/app/api/routes/ws.py`): Handles the `/ws/{game_id}` endpoint, JWT validation, and message dispatch.
-- **Game REST Routes** (`backend/app/api/routes/games.py`): State-changing endpoints (join, start, develop, actions, next-round) broadcast game events via `BackgroundTasks` after committing database changes.
+- **Game REST Routes** (`backend/app/api/routes/games.py`): State-changing endpoints (join, start, develop, actions, end-actions, next-round) broadcast game events via `BackgroundTasks` after committing database changes. The end-actions endpoint triggers auto phase transitions when all players complete.
 - **useGameWebSocket** (`frontend/src/hooks/useGameWebSocket.ts`): React hook that manages WebSocket lifecycle, reconnection, and state synchronization.
 - **WebSocket Types** (`frontend/src/types/index.ts`): TypeScript discriminated union types for all WebSocket messages (`WsServerMessage`).
 - **Nginx Proxy** (`frontend/nginx.conf`): Proxies `/ws/` to the backend with WebSocket upgrade headers and a 24-hour `proxy_read_timeout` to support long-lived connections.

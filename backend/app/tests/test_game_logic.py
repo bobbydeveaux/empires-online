@@ -205,3 +205,163 @@ class TestGameLogic:
 
         assert result["success"] == False
         assert "insufficient resources" in result["error"]
+
+    # --- recruit_people action tests ---
+
+    def test_can_perform_action_recruit_people(self):
+        """Test checking if player can recruit people."""
+        country = self.create_mock_spawned_country(gold=4)
+
+        # Can afford 2 recruits (2 gold each)
+        assert GameLogic.can_perform_action(country, "recruit_people", 2) == True
+
+        # Cannot afford 3 recruits (6 gold needed)
+        assert GameLogic.can_perform_action(country, "recruit_people", 3) == False
+
+    def test_perform_action_recruit_people(self):
+        """Test performing recruit people action."""
+        country = self.create_mock_spawned_country(gold=6, people=3)
+
+        result = GameLogic.perform_action(country, "recruit_people", 2)
+
+        assert result["success"] == True
+        assert country.gold == 2  # 6 - (2 * 2)
+        assert country.people == 5  # 3 + 2
+        assert result["changes"]["cost"] == 4
+
+    def test_perform_action_recruit_people_insufficient_funds(self):
+        """Test recruiting people with insufficient gold."""
+        country = self.create_mock_spawned_country(gold=1, people=3)
+
+        result = GameLogic.perform_action(country, "recruit_people", 1)
+
+        assert result["success"] == False
+        assert country.people == 3  # unchanged
+
+    # --- acquire_territory action tests ---
+
+    def test_can_perform_action_acquire_territory(self):
+        """Test checking if player can acquire territories."""
+        country = self.create_mock_spawned_country(gold=6)
+
+        # Can afford 2 territories (3 gold each)
+        assert GameLogic.can_perform_action(country, "acquire_territory", 2) == True
+
+        # Cannot afford 3 territories (9 gold needed)
+        assert GameLogic.can_perform_action(country, "acquire_territory", 3) == False
+
+    def test_perform_action_acquire_territory(self):
+        """Test performing acquire territory action."""
+        country = self.create_mock_spawned_country(gold=9, territories=4)
+
+        result = GameLogic.perform_action(country, "acquire_territory", 2)
+
+        assert result["success"] == True
+        assert country.gold == 3  # 9 - (2 * 3)
+        assert country.territories == 6  # 4 + 2
+        assert result["changes"]["cost"] == 6
+
+    def test_perform_action_acquire_territory_insufficient_funds(self):
+        """Test acquiring territory with insufficient gold."""
+        country = self.create_mock_spawned_country(gold=2, territories=4)
+
+        result = GameLogic.perform_action(country, "acquire_territory", 1)
+
+        assert result["success"] == False
+        assert country.territories == 4  # unchanged
+
+    # --- unknown action tests ---
+
+    def test_can_perform_action_unknown(self):
+        """Test that unknown actions return False."""
+        country = self.create_mock_spawned_country(gold=100)
+        assert GameLogic.can_perform_action(country, "fly_to_moon", 1) == False
+
+    def test_perform_action_unknown(self):
+        """Test that unknown actions fail gracefully."""
+        country = self.create_mock_spawned_country(gold=100)
+        result = GameLogic.perform_action(country, "fly_to_moon", 1)
+        assert result["success"] == False
+
+    # --- stability check tests ---
+
+    def test_stability_check_stable(self):
+        """Test stability check when supporters >= revolters."""
+        country = self.create_mock_spawned_country(
+            gold=10, supporters=5, revolters=3
+        )
+
+        result = GameLogic.run_stability_check(country)
+
+        assert result["stable"] == True
+        assert result["gold_lost"] == 0
+        assert country.gold == 10  # unchanged
+
+    def test_stability_check_equal(self):
+        """Test stability check when supporters == revolters."""
+        country = self.create_mock_spawned_country(
+            gold=10, supporters=5, revolters=5
+        )
+
+        result = GameLogic.run_stability_check(country)
+
+        assert result["stable"] == True
+        assert result["gold_lost"] == 0
+        assert country.gold == 10  # unchanged
+
+    def test_stability_check_unstable(self):
+        """Test stability check when revolters > supporters."""
+        country = self.create_mock_spawned_country(
+            gold=10, supporters=2, revolters=5
+        )
+
+        result = GameLogic.run_stability_check(country)
+
+        # excess = 5 - 2 = 3, lose 3 gold
+        assert result["stable"] == False
+        assert result["gold_lost"] == 3
+        assert result["excess_revolters"] == 3
+        assert result["gold_before"] == 10
+        assert result["gold_after"] == 7
+        assert country.gold == 7
+
+    def test_stability_check_gold_floor_at_zero(self):
+        """Test stability check floors gold at 0."""
+        country = self.create_mock_spawned_country(
+            gold=2, supporters=0, revolters=5
+        )
+
+        result = GameLogic.run_stability_check(country)
+
+        # excess = 5, but only 2 gold available
+        assert result["stable"] == False
+        assert result["gold_lost"] == 2
+        assert result["gold_after"] == 0
+        assert country.gold == 0
+
+    def test_stability_check_zero_gold(self):
+        """Test stability check with zero gold and instability."""
+        country = self.create_mock_spawned_country(
+            gold=0, supporters=0, revolters=3
+        )
+
+        result = GameLogic.run_stability_check(country)
+
+        assert result["stable"] == False
+        assert result["gold_lost"] == 0
+        assert country.gold == 0
+
+    # --- perform_action new_state includes people and territories ---
+
+    def test_perform_action_new_state_includes_all_fields(self):
+        """Test that perform_action returns people and territories in new_state."""
+        country = self.create_mock_spawned_country(
+            gold=10, bonds=1, banks=1, people=3, territories=4
+        )
+
+        result = GameLogic.perform_action(country, "buy_bond", 1)
+
+        assert "people" in result["new_state"]
+        assert "territories" in result["new_state"]
+        assert result["new_state"]["people"] == 3
+        assert result["new_state"]["territories"] == 4

@@ -6,6 +6,7 @@ import Register from './pages/Register';
 import GameLobby from './pages/GameLobby';
 import Game from './pages/Game';
 import Navbar from './components/Navbar';
+import { ToastProvider } from './components/Toast';
 import './App.css';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -39,28 +40,30 @@ const HomePage: React.FC = () => {
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <Router>
-        <div className="App">
-          <Navbar />
-          <main className="main-content">
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/lobby" element={
-                <ProtectedRoute>
-                  <GameLobby />
-                </ProtectedRoute>
-              } />
-              <Route path="/game/:gameId" element={
-                <ProtectedRoute>
-                  <Game />
-                </ProtectedRoute>
-              } />
-              <Route path="/" element={<HomePage />} />
-            </Routes>
-          </main>
-        </div>
-      </Router>
+      <ToastProvider>
+        <Router>
+          <div className="App">
+            <Navbar />
+            <main className="main-content">
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/lobby" element={
+                  <ProtectedRoute>
+                    <GameLobby />
+                  </ProtectedRoute>
+                } />
+                <Route path="/game/:gameId" element={
+                  <ProtectedRoute>
+                    <Game />
+                  </ProtectedRoute>
+                } />
+                <Route path="/" element={<HomePage />} />
+              </Routes>
+            </main>
+          </div>
+        </Router>
+      </ToastProvider>
     </AuthProvider>
   );
 };

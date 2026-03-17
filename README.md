@@ -89,9 +89,11 @@ npm start
 
 ### Core Game Loop
 1. **Development Phase** (automatic): Calculate luxuries, industries, unemployment, banking costs
-2. **Action Phase** (optional): Players can buy bonds, build banks, trade resources
-3. **Round End**: Update state, check stability, prepare for next round
-4. **Game End**: Calculate victory points after all rounds
+2. **Action Phase** (optional): Players can buy bonds, build banks, recruit people, acquire territories
+3. **End Actions**: Players mark themselves done; auto-advances when all players complete
+4. **Stability Check**: Countries with revolters > supporters lose gold
+5. **Round End**: Update state, broadcast round summary, prepare for next round
+6. **Game End**: Calculate victory points after all rounds
 
 ### Development Algorithm
 The heart of the game's economic system:
@@ -134,7 +136,10 @@ Instability Penalty = If revolters > supporters, multiply total by 0.5
 - `POST /api/games/{id}/start` - Start game (creator only)
 - `GET /api/games/{id}` - Get game state
 - `POST /api/games/{id}/countries/{country_id}/develop` - Execute development
-- `POST /api/games/{id}/countries/{country_id}/actions` - Perform actions
+- `POST /api/games/{id}/countries/{country_id}/actions` - Perform actions (buy_bond, build_bank, recruit_people, acquire_territory)
+- `POST /api/games/{id}/countries/{country_id}/end-actions` - End actions phase (auto-advances round when all players done)
+- `POST /api/games/{id}/next-round` - Manually advance round (creator only)
+- `GET /api/games/{id}/round-summary` - Get per-player round summary
 - `GET /api/games/{id}/leaderboard` - Get current standings
 
 ### Players
@@ -153,6 +158,14 @@ Instability Penalty = If revolters > supporters, multiply total by 0.5
 cd backend
 python -m pytest app/tests/ -v
 ```
+
+### Backend Tests with Coverage
+```bash
+cd backend
+python -m pytest --cov=app --cov-report=term-missing app/tests/ -v
+```
+
+Coverage target: **≥ 80%**
 
 ### Frontend Tests
 ```bash
@@ -181,13 +194,18 @@ docker-compose down
 - [x] Full CI/CD pipeline with GitHub Actions
 - [x] Docker containers and docker-compose setup
 - [x] Comprehensive unit tests for game logic
+- [x] Integration tests with coverage target (≥80%)
 
-### Phase 2 - Enhanced Features (🔄 Next)
+### Phase 2 - Enhanced Features (🔄 In Progress)
 - [x] Add WebSocket support for real-time updates (backend + frontend hook with reconnection)
+- [x] Toast notification system for action confirmations and errors
+- [x] End-actions endpoint with automatic phase transitions
+- [x] Stability check at round end (revolters > supporters → gold loss)
+- [x] Round summary endpoint with per-player action history
+- [x] New actions: recruit_people (2 gold), acquire_territory (3 gold)
 - [ ] Implement trading between players
 - [ ] Add game history and statistics
 - [ ] Create comprehensive API documentation
-- [ ] Add input validation and error handling
 - [ ] Implement game spectator mode
 
 ### Phase 3 - Polish (📋 Future)
@@ -195,7 +213,7 @@ docker-compose down
 - [ ] Create tournament system
 - [ ] Add game variants (short/long games)
 - [ ] Implement advanced rules (diplomacy, events)
-- [ ] Mobile-responsive design
+- [x] Mobile-responsive design
 - [ ] Performance optimization
 
 ## Technology Stack
@@ -203,7 +221,7 @@ docker-compose down
 - **Backend**: Python 3.11+, FastAPI, SQLAlchemy, Alembic, PostgreSQL
 - **Frontend**: React 18, TypeScript, Axios
 - **Database**: PostgreSQL 15
-- **Testing**: Pytest (backend), Jest (frontend)
+- **Testing**: Pytest + pytest-cov (backend), Jest (frontend)
 - **Deployment**: Docker, Docker Compose
 - **CI/CD**: GitHub Actions
 
