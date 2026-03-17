@@ -186,8 +186,8 @@ const Game: React.FC = () => {
       {/* Connection Status Banner */}
       <ConnectionStatusBanner status={connectionStatus} onReconnect={reconnect} />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-        <h1>Game #{gameState.game.id}</h1>
+      <div className="game-info-bar">
+        <h1 style={{ margin: 0 }}>Game #{gameState.game.id}</h1>
         <div>
           <strong>Round:</strong> {gameState.game.rounds - gameState.game.rounds_remaining + 1} / {gameState.game.rounds} |{' '}
           <strong>Phase:</strong> {gameState.game.phase}
@@ -278,7 +278,7 @@ const Game: React.FC = () => {
       {/* Leaderboard */}
       <div className="card">
         <h3>Current Leaderboard</h3>
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-responsive">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #ddd' }}>
