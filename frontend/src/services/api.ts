@@ -13,6 +13,21 @@ import {
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
+/**
+ * Build a WebSocket URL for a given game room.
+ * Derives ws:// or wss:// from the current page protocol.
+ */
+export function getWebSocketUrl(gameId: number, token: string): string {
+  const wsBase = process.env.REACT_APP_WS_URL;
+  if (wsBase) {
+    return `${wsBase}/ws/${gameId}?token=${encodeURIComponent(token)}`;
+  }
+  // Derive from current location
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.host;
+  return `${protocol}//${host}/ws/${gameId}?token=${encodeURIComponent(token)}`;
+}
+
 const api = axios.create({
   baseURL: API_BASE_URL,
 });

@@ -102,3 +102,58 @@ export interface AuthToken {
   access_token: string;
   token_type: string;
 }
+
+// WebSocket message types (Server → Client)
+
+export interface WsPlayerJoinedMessage {
+  type: 'player_joined';
+  game_id: number;
+  player: { id: number; username: string };
+}
+
+export interface WsPlayerLeftMessage {
+  type: 'player_left';
+  game_id: number;
+  player: { id: number; username: string };
+}
+
+export interface WsGameStateUpdateMessage {
+  type: 'game_state_update';
+  game_id: number;
+  game_state?: GameState;
+}
+
+export interface WsRoundChangedMessage {
+  type: 'round_changed';
+  game_id: number;
+  round: number;
+  phase: string;
+}
+
+export interface WsChatMessage {
+  type: 'chat';
+  game_id: number;
+  player: { id: number; username: string };
+  message: string;
+}
+
+export interface WsPongMessage {
+  type: 'pong';
+}
+
+export interface WsErrorMessage {
+  type: 'error';
+  message: string;
+}
+
+export type WsServerMessage =
+  | WsPlayerJoinedMessage
+  | WsPlayerLeftMessage
+  | WsGameStateUpdateMessage
+  | WsRoundChangedMessage
+  | WsChatMessage
+  | WsPongMessage
+  | WsErrorMessage;
+
+// WebSocket connection status
+export type WsConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
