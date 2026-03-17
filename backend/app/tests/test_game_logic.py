@@ -205,3 +205,82 @@ class TestGameLogic:
 
         assert result["success"] == False
         assert "insufficient resources" in result["error"]
+
+    # --- Stability check tests ---
+
+    def test_stability_check_stable(self):
+        """Stable country (supporters >= revolters) loses no gold."""
+        country = self.create_mock_spawned_country(
+            gold=10, supporters=5, revolters=3
+        )
+        result = GameLogic.run_stability_check(country)
+
+        assert result["stable"] is True
+        assert result["gold_lost"] == 0
+        assert country.gold == 10  # Unchanged
+
+    def test_stability_check_unstable(self):
+        """Unstable country loses gold equal to excess revolters."""
+        country = self.create_mock_spawned_country(
+            gold=10, supporters=2, revolters=5
+        )
+        result = GameLogic.run_stability_check(country)
+
+        # excess = 5 - 2 = 3, so lose 3 gold
+        assert result["stable"] is False
+        assert result["gold_lost"] == 3
+        assert result["excess_revolters"] == 3
+        assert country.gold == 7
+
+    def test_stability_check_gold_floor_at_zero(self):
+        """Gold cannot go below zero from stability check."""
+        country = self.create_mock_spawned_country(
+            gold=2, supporters=0, revolters=5
+        )
+        result = GameLogic.run_stability_check(country)
+
+        assert result["stable"] is False
+        assert country.gold == 0
+        assert result["gold_lost"] == 2  # Only lost what they had
+
+    def test_stability_check_equal_supporters_revolters(self):
+        """Equal supporters and revolters means stable."""
+        country = self.create_mock_spawned_country(
+            gold=10, supporters=4, revolters=4
+        )
+        result = GameLogic.run_stability_check(country)
+        assert result["stable"] is True
+
+    # --- New action tests ---
+
+    def test_can_perform_action_recruit_people(self):
+        """Recruit people costs 2 gold each."""
+        country = self.create_mock_spawned_country(gold=4)
+        assert GameLogic.can_perform_action(country, "recruit_people", 2) is True
+        assert GameLogic.can_perform_action(country, "recruit_people", 3) is False
+
+    def test_can_perform_action_acquire_territory(self):
+        """Acquire territory costs 3 gold each."""
+        country = self.create_mock_spawned_country(gold=6)
+        assert GameLogic.can_perform_action(country, "acquire_territory", 2) is True
+        assert GameLogic.can_perform_action(country, "acquire_territory", 3) is False
+
+    def test_perform_action_recruit_people(self):
+        """Test recruiting people."""
+        country = self.create_mock_spawned_country(gold=6, people=3)
+        result = GameLogic.perform_action(country, "recruit_people", 2)
+
+        assert result["success"] is True
+        assert country.gold == 2  # 6 - (2 * 2)
+        assert country.people == 5  # 3 + 2
+        assert result["changes"]["cost"] == 4
+
+    def test_perform_action_acquire_territory(self):
+        """Test acquiring territory."""
+        country = self.create_mock_spawned_country(gold=9, territories=4)
+        result = GameLogic.perform_action(country, "acquire_territory", 2)
+
+        assert result["success"] is True
+        assert country.gold == 3  # 9 - (2 * 3)
+        assert country.territories == 6  # 4 + 2
+        assert result["changes"]["cost"] == 6
