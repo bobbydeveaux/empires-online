@@ -144,6 +144,12 @@ class GameLogic:
         elif action == "build_bank":
             # Banks cost 3 gold each (example cost)
             return spawned_country.gold >= (3 * quantity)
+        elif action == "recruit_people":
+            # Recruiting costs 2 gold per person
+            return spawned_country.gold >= (2 * quantity)
+        elif action == "acquire_territory":
+            # Acquiring territory costs 3 gold each
+            return spawned_country.gold >= (3 * quantity)
 
         return False
 
@@ -173,6 +179,18 @@ class GameLogic:
             spawned_country.banks += quantity
             changes["cost"] = cost
 
+        elif action == "recruit_people":
+            cost = 2 * quantity
+            spawned_country.gold -= cost
+            spawned_country.people += quantity
+            changes["cost"] = cost
+
+        elif action == "acquire_territory":
+            cost = 3 * quantity
+            spawned_country.gold -= cost
+            spawned_country.territories += quantity
+            changes["cost"] = cost
+
         return {
             "success": True,
             "changes": changes,
@@ -180,5 +198,7 @@ class GameLogic:
                 "gold": spawned_country.gold,
                 "bonds": spawned_country.bonds,
                 "banks": spawned_country.banks,
+                "people": spawned_country.people,
+                "territories": spawned_country.territories,
             },
         }
