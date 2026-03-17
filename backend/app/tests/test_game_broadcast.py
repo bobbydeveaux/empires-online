@@ -11,6 +11,9 @@ from app.services.game_broadcast import (
     round_advanced_message,
     game_completed_message,
     player_joined_game_message,
+    actions_completed_message,
+    stability_check_message,
+    round_summary_message,
     broadcast_event,
     _broadcast,
 )
@@ -101,6 +104,45 @@ class TestMessageBuilders:
             "player": {"id": 2, "username": "charlie"},
             "country_name": "Germany",
         }
+
+    def test_actions_completed_message(self):
+        msg = actions_completed_message(
+            game_id=1,
+            player_id=3,
+            username="dave",
+            completed_count=2,
+            total_count=4,
+        )
+        assert msg == {
+            "type": "actions_completed",
+            "game_id": 1,
+            "player": {"id": 3, "username": "dave"},
+            "completed_count": 2,
+            "total_count": 4,
+        }
+
+    def test_stability_check_message(self):
+        results = [
+            {"player_name": "alice", "stable": True, "gold_lost": 0},
+            {"player_name": "bob", "stable": False, "gold_lost": 3},
+        ]
+        msg = stability_check_message(game_id=1, results=results)
+        assert msg == {
+            "type": "stability_check",
+            "game_id": 1,
+            "results": results,
+        }
+
+    def test_round_summary_message(self):
+        summary = [{"player_name": "alice", "actions": [{"type": "development"}]}]
+        msg = round_summary_message(game_id=1, round_number=2, summary=summary)
+        assert msg == {
+            "type": "round_summary",
+            "game_id": 1,
+            "round": 2,
+            "summary": summary,
+        }
+
 
 
 class TestBroadcast:

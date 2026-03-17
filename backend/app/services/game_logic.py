@@ -132,28 +132,47 @@ class GameLogic:
             },
         }
 
+    # Action cost definitions
+    ACTION_COSTS = {
+        "buy_bond": 2,
+        "build_bank": 3,
+        "recruit_people": 2,
+        "acquire_territory": 3,
+    }
+
     @staticmethod
     def run_stability_check(spawned_country: SpawnedCountry) -> Dict[str, Any]:
-        """Run a stability check on a country.
+        """Run stability check at end of round.
 
-        When revolters > supporters, gold is deducted by (revolters - supporters),
-        floored at 0.  When supporters >= revolters, no action is taken.
+        If revolters > supporters, the country loses gold equal to the
+        difference (floored at 0).  Returns a dict describing what happened.
+
+        Per FR-005: deduct gold = (revolters - supporters), floor at 0.
         """
-        if spawned_country.revolters <= spawned_country.supporters:
+        revolters = spawned_country.revolters
+        supporters = spawned_country.supporters
+
+        if revolters <= supporters:
             return {
-                "applied": False,
-                "penalty": 0,
-                "new_gold": spawned_country.gold,
+                "stable": True,
+                "gold_lost": 0,
+                "revolters": revolters,
+                "supporters": supporters,
             }
 
-        penalty = spawned_country.revolters - spawned_country.supporters
-        new_gold = max(0, spawned_country.gold - penalty)
-        spawned_country.gold = new_gold
+        excess = revolters - supporters
+        gold_before = spawned_country.gold
+        gold_lost = min(excess, gold_before)  # Cannot lose more than you have
+        spawned_country.gold = max(0, gold_before - excess)
 
         return {
-            "applied": True,
-            "penalty": penalty,
-            "new_gold": new_gold,
+            "stable": False,
+            "gold_lost": gold_lost,
+            "excess_revolters": excess,
+            "gold_before": gold_before,
+            "gold_after": spawned_country.gold,
+            "revolters": revolters,
+            "supporters": supporters,
         }
 
     @staticmethod
@@ -161,21 +180,10 @@ class GameLogic:
         spawned_country: SpawnedCountry, action: str, quantity: int = 1
     ) -> bool:
         """Check if a player can perform a specific action."""
-
-        if action == "buy_bond":
-            # Bonds cost 2 gold each
-            return spawned_country.gold >= (2 * quantity)
-        elif action == "build_bank":
-            # Banks cost 3 gold each
-            return spawned_country.gold >= (3 * quantity)
-        elif action == "recruit_people":
-            # Recruit people costs 2 gold each
-            return spawned_country.gold >= (2 * quantity)
-        elif action == "acquire_territory":
-            # Acquire territory costs 3 gold each
-            return spawned_country.gold >= (3 * quantity)
-
-        return False
+        cost_per_unit = GameLogic.ACTION_COSTS.get(action)
+        if cost_per_unit is None:
+            return False
+        return spawned_country.gold >= (cost_per_unit * quantity)
 
     @staticmethod
     def perform_action(
@@ -189,31 +197,20 @@ class GameLogic:
                 "error": "Cannot perform action - insufficient resources",
             }
 
-        changes = {"action": action, "quantity": quantity}
+        cost_per_unit = GameLogic.ACTION_COSTS[action]
+        cost = cost_per_unit * quantity
+        changes = {"action": action, "quantity": quantity, "cost": cost}
+
+        spawned_country.gold -= cost
 
         if action == "buy_bond":
-            cost = 2 * quantity
-            spawned_country.gold -= cost
             spawned_country.bonds += quantity
-            changes["cost"] = cost
-
         elif action == "build_bank":
-            cost = 3 * quantity
-            spawned_country.gold -= cost
             spawned_country.banks += quantity
-            changes["cost"] = cost
-
         elif action == "recruit_people":
-            cost = 2 * quantity
-            spawned_country.gold -= cost
             spawned_country.people += quantity
-            changes["cost"] = cost
-
         elif action == "acquire_territory":
-            cost = 3 * quantity
-            spawned_country.gold -= cost
             spawned_country.territories += quantity
-            changes["cost"] = cost
 
         return {
             "success": True,
@@ -222,5 +219,8 @@ class GameLogic:
                 "gold": spawned_country.gold,
                 "bonds": spawned_country.bonds,
                 "banks": spawned_country.banks,
+                "people": spawned_country.people,
+                "territories": spawned_country.territories,
             },
         }
+

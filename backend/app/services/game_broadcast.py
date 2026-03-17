@@ -107,6 +107,48 @@ def player_joined_game_message(
     }
 
 
+def actions_completed_message(
+    game_id: int,
+    player_id: int,
+    username: str,
+    completed_count: int,
+    total_count: int,
+) -> Dict[str, Any]:
+    return {
+        "type": "actions_completed",
+        "game_id": game_id,
+        "player": _player_summary(player_id, username),
+        "completed_count": completed_count,
+        "total_count": total_count,
+    }
+
+
+
+def stability_check_message(
+    game_id: int,
+    results: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    return {
+        "type": "stability_check",
+        "game_id": game_id,
+        "results": results,
+    }
+
+
+def round_summary_message(
+    game_id: int,
+    round_number: int,
+    summary: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    return {
+        "type": "round_summary",
+        "game_id": game_id,
+        "round": round_number,
+        "summary": summary,
+    }
+
+
+
 # ---------------------------------------------------------------------------
 # Broadcast dispatcher (runs as a BackgroundTask)
 # ---------------------------------------------------------------------------

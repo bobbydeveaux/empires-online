@@ -1,9 +1,22 @@
 {
-  "prTitle": "fix: remove duplicate Alembic migration and address review feedback",
-  "prBody": "## Summary\n\nAddresses all review feedback from prior code review:\n\n1. **CRITICAL: `broadcast_event()` silent failure** — Already fixed in previous iteration. The function is now `async` and properly awaits `_broadcast()`, so FastAPI can schedule it correctly as an async background task.\n\n2. **Unused `Optional` import** — Already removed in previous iteration.\n\n3. **Duplicate migration file removed** — `001_add_stability_checked.py` was redundant because `001_initial_schema.py` already creates the `games` table with the `stability_checked` column included. Both files had the same revision ID (`001`) and `down_revision=None`, which would cause Alembic to error on startup with a duplicate head.\n\nThe single consolidated migration `001_initial_schema.py` correctly includes all tables and the `stability_checked` column on `games`.\n\nCloses #19",
+  "prTitle": "feat: add recruit_people, acquire_territory actions and stability check",
+  "prBody": "## Summary\n\nImplements the remaining player actions and stability check for the Empires Online game engine (Phase 2 - Sprint 2).\n\n### Changes\n\n**New Actions in GameLogic (`backend/app/services/game_logic.py`):**\n- `recruit_people`: costs 2 gold, adds 1 person per quantity\n- `acquire_territory`: costs 3 gold, adds 1 territory per quantity\n- Refactored action cost definitions into a centralized `ACTION_COSTS` dictionary\n- `perform_action` now returns `people` and `territories` in `new_state`\n\n**Stability Check (`GameLogic.run_stability_check`):**\n- New method that runs at end of each round\n- If revolters > supporters: deducts gold equal to (revolters - supporters)\n- Gold is floored at 0 (never goes negative)\n- Returns detailed result including stable/unstable status and gold lost\n\n**Integration (`backend/app/api/routes/games.py`):**\n- `next_round` endpoint now runs stability check for all players before advancing\n- Broadcasts `stability_check` event via WebSocket with per-player results\n\n**Broadcasting (`backend/app/services/game_broadcast.py`):**\n- Added `stability_check_message` builder for the new event type\n\n**Tests:**\n- 14 new test cases covering:\n  - recruit_people validation and execution\n  - acquire_territory validation and execution\n  - Unknown action handling\n  - Stability check: stable, equal, unstable, gold floor at 0, zero gold scenarios\n  - New state field verification\n- 1 new broadcast message builder test\n\n**Documentation:**\n- Updated `docs/websocket-api.md` with `stability_check` event type\n- Updated `README.md` with new actions and stability check in feature list\n\n### Review Feedback Addressed\n- `broadcast_event()` async bug was already fixed in prior commit\n- Unused `Optional` import was already removed in prior commit\n\nCloses #35",
   "testsPass": true,
-  "filesChanged": ["backend/alembic/versions/001_add_stability_checked.py"],
-  "docsUpdated": [],
-  "docsReviewed": ["docs/database-migrations.md", "README.md"],
-  "completedTasks": [1, 2]
+  "filesChanged": [
+    "backend/app/services/game_logic.py",
+    "backend/app/services/game_broadcast.py",
+    "backend/app/api/routes/games.py",
+    "backend/app/tests/test_game_logic.py",
+    "backend/app/tests/test_game_broadcast.py",
+    "docs/websocket-api.md",
+    "README.md"
+  ],
+  "docsUpdated": [
+    "docs/websocket-api.md",
+    "README.md"
+  ],
+  "docsReviewed": [
+    "DESIGN.md",
+    "docs/concepts/empires-online/PRD.md"
+  ]
 }
