@@ -177,3 +177,225 @@ class TestWebSocketEndpoint:
             # After context exit (disconnect), the manager should have cleaned up
             # The room should be empty or removed
             assert manager.get_room_count(1) == 0
+
+
+class TestWebSocketBroadcasting:
+    """Tests for game state broadcasting via WebSocket."""
+
+    def test_two_clients_receive_broadcast(self):
+        """Two clients in the same game room both receive broadcasts."""
+        token1 = _create_token("player1")
+        token2 = _create_token("player2")
+        mock_player1 = _mock_player(player_id=1, username="player1")
+        mock_player2 = _mock_player(player_id=2, username="player2")
+
+        def get_player_side_effect(db, username):
+            if username == "player1":
+                return mock_player1
+            if username == "player2":
+                return mock_player2
+            return None
+
+        with patch("app.api.routes.ws._get_db") as mock_get_db, \
+             patch("app.api.routes.ws._get_player", side_effect=get_player_side_effect):
+            mock_db = MagicMock()
+            mock_get_db.return_value = mock_db
+
+            client = TestClient(app)
+            with client.websocket_connect(f"/ws/1?token={token1}") as ws1:
+                # ws1 receives its own player_joined
+                data1 = ws1.receive_json()
+                assert data1["type"] == "player_joined"
+                assert data1["player"]["username"] == "player1"
+
+                with client.websocket_connect(f"/ws/1?token={token2}") as ws2:
+                    # ws2 receives player_joined for player2
+                    data2 = ws2.receive_json()
+                    assert data2["type"] == "player_joined"
+                    assert data2["player"]["username"] == "player2"
+
+                    # ws1 also receives player_joined for player2
+                    data1_broadcast = ws1.receive_json()
+                    assert data1_broadcast["type"] == "player_joined"
+                    assert data1_broadcast["player"]["username"] == "player2"
+
+    def test_chat_broadcast_to_all_clients(self):
+        """A chat message from one client is broadcast to all clients in the room."""
+        token1 = _create_token("player1")
+        token2 = _create_token("player2")
+        mock_player1 = _mock_player(player_id=1, username="player1")
+        mock_player2 = _mock_player(player_id=2, username="player2")
+
+        def get_player_side_effect(db, username):
+            if username == "player1":
+                return mock_player1
+            if username == "player2":
+                return mock_player2
+            return None
+
+        with patch("app.api.routes.ws._get_db") as mock_get_db, \
+             patch("app.api.routes.ws._get_player", side_effect=get_player_side_effect):
+            mock_db = MagicMock()
+            mock_get_db.return_value = mock_db
+
+            client = TestClient(app)
+            with client.websocket_connect(f"/ws/1?token={token1}") as ws1:
+                ws1.receive_json()  # player_joined
+
+                with client.websocket_connect(f"/ws/1?token={token2}") as ws2:
+                    ws2.receive_json()  # player_joined for player2
+                    ws1.receive_json()  # player_joined for player2 (broadcast)
+
+                    # player1 sends a chat
+                    ws1.send_json({"type": "chat", "message": "Hello everyone!"})
+
+                    # Both clients receive the chat broadcast
+                    chat1 = ws1.receive_json()
+                    assert chat1["type"] == "chat"
+                    assert chat1["message"] == "Hello everyone!"
+                    assert chat1["player"]["username"] == "player1"
+
+                    chat2 = ws2.receive_json()
+                    assert chat2["type"] == "chat"
+                    assert chat2["message"] == "Hello everyone!"
+                    assert chat2["player"]["username"] == "player1"
+
+    def test_different_rooms_isolated(self):
+        """Clients in different game rooms do not receive each other's broadcasts."""
+        token1 = _create_token("player1")
+        token2 = _create_token("player2")
+        mock_player1 = _mock_player(player_id=1, username="player1")
+        mock_player2 = _mock_player(player_id=2, username="player2")
+
+        def get_player_side_effect(db, username):
+            if username == "player1":
+                return mock_player1
+            if username == "player2":
+                return mock_player2
+            return None
+
+        with patch("app.api.routes.ws._get_db") as mock_get_db, \
+             patch("app.api.routes.ws._get_player", side_effect=get_player_side_effect):
+            mock_db = MagicMock()
+            mock_get_db.return_value = mock_db
+
+            client = TestClient(app)
+            # player1 in game 1, player2 in game 2
+            with client.websocket_connect(f"/ws/1?token={token1}") as ws1:
+                ws1.receive_json()  # player_joined
+
+                with client.websocket_connect(f"/ws/2?token={token2}") as ws2:
+                    ws2.receive_json()  # player_joined
+
+                    # player1 sends a chat in game 1
+                    ws1.send_json({"type": "chat", "message": "Game 1 only"})
+                    chat1 = ws1.receive_json()
+                    assert chat1["type"] == "chat"
+                    assert chat1["game_id"] == 1
+
+                    # player2 should NOT receive it - send a ping to verify
+                    ws2.send_json({"type": "ping"})
+                    pong = ws2.receive_json()
+                    assert pong["type"] == "pong"
+
+
+class TestWebSocketReconnection:
+    """Tests for WebSocket reconnection handling."""
+
+    def test_reconnect_after_disconnect(self):
+        """Client can reconnect to the same game room after disconnection."""
+        token = _create_token("testuser")
+        mock_player = _mock_player()
+
+        with patch("app.api.routes.ws._get_db") as mock_get_db, \
+             patch("app.api.routes.ws._get_player", return_value=mock_player):
+            mock_db = MagicMock()
+            mock_get_db.return_value = mock_db
+
+            from app.services.ws_manager import manager
+            client = TestClient(app)
+
+            # First connection
+            with client.websocket_connect(f"/ws/1?token={token}") as ws:
+                data = ws.receive_json()
+                assert data["type"] == "player_joined"
+
+            # After disconnect, room should be cleaned up
+            assert manager.get_room_count(1) == 0
+
+            # Reconnect
+            with client.websocket_connect(f"/ws/1?token={token}") as ws:
+                data = ws.receive_json()
+                assert data["type"] == "player_joined"
+                assert data["player"]["username"] == "testuser"
+                assert manager.get_room_count(1) == 1
+
+                # Verify the connection works (ping/pong)
+                ws.send_json({"type": "ping"})
+                pong = ws.receive_json()
+                assert pong["type"] == "pong"
+
+    def test_reconnect_room_still_has_other_clients(self):
+        """When one client disconnects and reconnects, other clients remain connected."""
+        token1 = _create_token("player1")
+        token2 = _create_token("player2")
+        mock_player1 = _mock_player(player_id=1, username="player1")
+        mock_player2 = _mock_player(player_id=2, username="player2")
+
+        def get_player_side_effect(db, username):
+            if username == "player1":
+                return mock_player1
+            if username == "player2":
+                return mock_player2
+            return None
+
+        with patch("app.api.routes.ws._get_db") as mock_get_db, \
+             patch("app.api.routes.ws._get_player", side_effect=get_player_side_effect):
+            mock_db = MagicMock()
+            mock_get_db.return_value = mock_db
+
+            from app.services.ws_manager import manager
+            client = TestClient(app)
+
+            with client.websocket_connect(f"/ws/1?token={token2}") as ws2:
+                ws2.receive_json()  # player_joined for player2
+
+                # player1 connects then disconnects
+                with client.websocket_connect(f"/ws/1?token={token1}") as ws1:
+                    ws1.receive_json()  # player_joined for player1
+                    ws2.receive_json()  # broadcast: player_joined for player1
+                    assert manager.get_room_count(1) == 2
+
+                # player1 disconnected, room still has player2
+                # Consume the player_left broadcast
+                left_msg = ws2.receive_json()
+                assert left_msg["type"] == "player_left"
+                assert left_msg["player"]["username"] == "player1"
+                assert manager.get_room_count(1) == 1
+
+                # player1 reconnects
+                with client.websocket_connect(f"/ws/1?token={token1}") as ws1:
+                    ws1.receive_json()  # player_joined
+                    rejoined = ws2.receive_json()  # player2 receives player_joined
+                    assert rejoined["type"] == "player_joined"
+                    assert rejoined["player"]["username"] == "player1"
+                    assert manager.get_room_count(1) == 2
+
+    def test_authorization_header_fallback(self):
+        """Test that WebSocket accepts token from Authorization header."""
+        token = _create_token("testuser")
+        mock_player = _mock_player()
+
+        with patch("app.api.routes.ws._get_db") as mock_get_db, \
+             patch("app.api.routes.ws._get_player", return_value=mock_player):
+            mock_db = MagicMock()
+            mock_get_db.return_value = mock_db
+
+            client = TestClient(app)
+            with client.websocket_connect(
+                "/ws/1",
+                headers={"Authorization": f"Bearer {token}"},
+            ) as ws:
+                data = ws.receive_json()
+                assert data["type"] == "player_joined"
+                assert data["player"]["username"] == "testuser"
