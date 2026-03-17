@@ -28,6 +28,7 @@ from app.services.game_broadcast import (
     round_advanced_message,
     game_completed_message,
     player_joined_game_message,
+    game_state_update_message,
 )
 import json
 
@@ -55,6 +56,72 @@ def _build_leaderboard(db: Session, game_id: int) -> list:
         )
     leaderboard.sort(key=lambda x: x["score"], reverse=True)
     return leaderboard
+
+
+def _build_game_state_payload(db: Session, game: Game) -> dict:
+    """Build a serialisable game-state dict for WebSocket broadcasts."""
+    spawned_countries = (
+        db.query(SpawnedCountry).filter(SpawnedCountry.game_id == game.id).all()
+    )
+    players = []
+    leaderboard = []
+    for sc in spawned_countries:
+        country = db.query(Country).filter(Country.id == sc.country_id).first()
+        player = db.query(Player).filter(Player.id == sc.player_id).first()
+        players.append({
+            "id": sc.id,
+            "country_id": sc.country_id,
+            "game_id": sc.game_id,
+            "player_id": sc.player_id,
+            "gold": sc.gold,
+            "bonds": sc.bonds,
+            "territories": sc.territories,
+            "goods": sc.goods,
+            "people": sc.people,
+            "banks": sc.banks,
+            "supporters": sc.supporters,
+            "revolters": sc.revolters,
+            "development_completed": sc.development_completed,
+            "actions_completed": sc.actions_completed,
+            "country": {
+                "id": country.id,
+                "name": country.name,
+                "default_gold": country.default_gold,
+                "default_bonds": country.default_bonds,
+                "default_territories": country.default_territories,
+                "default_goods": country.default_goods,
+                "default_people": country.default_people,
+            },
+            "player": {
+                "id": player.id,
+                "username": player.username,
+                "email": player.email,
+                "email_verified": player.email_verified,
+                "created_at": player.created_at.isoformat() if player.created_at else None,
+            },
+        })
+        vp = GameLogic.calculate_victory_points(sc)
+        leaderboard.append({
+            "player_id": sc.player_id,
+            "player_name": player.username,
+            "country_name": country.name,
+            "score": vp["total_score"],
+            "breakdown": vp["breakdown"],
+        })
+    leaderboard.sort(key=lambda x: x["score"], reverse=True)
+    return {
+        "game": {
+            "id": game.id,
+            "rounds": game.rounds,
+            "rounds_remaining": game.rounds_remaining,
+            "phase": game.phase,
+            "creator_id": game.creator_id,
+            "created_at": game.created_at.isoformat() if game.created_at else None,
+            "started_at": game.started_at.isoformat() if game.started_at else None,
+        },
+        "players": players,
+        "leaderboard": leaderboard,
+    }
 
 
 @router.post("/", response_model=GameSchema)
@@ -263,6 +330,15 @@ def start_game(
         game_started_message(game_id=game_id, phase="development"),
     )
 
+    # Broadcast updated game state after phase transition
+    db.refresh(game)  # refresh to pick up started_at set by func.now()
+    game_state_payload = _build_game_state_payload(db, game)
+    background_tasks.add_task(
+        broadcast_event,
+        game_id,
+        game_state_update_message(game_id=game_id, game_state=game_state_payload),
+    )
+
     return {"status": "started", "current_phase": "development"}
 
 
@@ -354,6 +430,14 @@ def execute_development(
         ),
     )
 
+    # Broadcast updated game state so all clients see development progress
+    game_state_payload = _build_game_state_payload(db, game)
+    background_tasks.add_task(
+        broadcast_event,
+        game_id,
+        game_state_update_message(game_id=game_id, game_state=game_state_payload),
+    )
+
     if completed_players == total_players:
         # Move to actions phase
         game.phase = "actions"
@@ -364,6 +448,14 @@ def execute_development(
             broadcast_event,
             game_id,
             phase_changed_message(game_id=game_id, new_phase="actions"),
+        )
+
+        # Broadcast updated game state after phase transition
+        game_state_payload = _build_game_state_payload(db, game)
+        background_tasks.add_task(
+            broadcast_event,
+            game_id,
+            game_state_update_message(game_id=game_id, game_state=game_state_payload),
         )
 
     return DevelopmentResult(
@@ -435,6 +527,14 @@ def perform_action(
             ),
         )
 
+        # Broadcast updated game state so all clients refresh their UI
+        game_state_payload = _build_game_state_payload(db, game)
+        background_tasks.add_task(
+            broadcast_event,
+            game_id,
+            game_state_update_message(game_id=game_id, game_state=game_state_payload),
+        )
+
     return ActionResult(**result)
 
 
@@ -496,6 +596,14 @@ def next_round(
                 phase=game.phase,
             ),
         )
+
+    # Broadcast updated game state after phase transition
+    game_state_payload = _build_game_state_payload(db, game)
+    background_tasks.add_task(
+        broadcast_event,
+        game_id,
+        game_state_update_message(game_id=game_id, game_state=game_state_payload),
+    )
 
     return {
         "message": f"Advanced to round {new_round_number}",

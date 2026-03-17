@@ -6,7 +6,7 @@ to be scheduled as FastAPI BackgroundTasks from synchronous REST handlers.
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from app.services.ws_manager import manager
 
@@ -91,6 +91,19 @@ def game_completed_message(
         "game_id": game_id,
         "leaderboard": leaderboard,
     }
+
+
+def game_state_update_message(
+    game_id: int,
+    game_state: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    msg: Dict[str, Any] = {
+        "type": "game_state_update",
+        "game_id": game_id,
+    }
+    if game_state is not None:
+        msg["game_state"] = game_state
+    return msg
 
 
 def player_joined_game_message(
