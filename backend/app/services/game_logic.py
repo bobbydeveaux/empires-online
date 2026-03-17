@@ -174,12 +174,16 @@ class GameLogic:
         """Check if a player can perform a specific action."""
 
         if action == "buy_bond":
+            # Bonds cost 2 gold each
             return spawned_country.gold >= (2 * quantity)
         elif action == "build_bank":
+            # Banks cost 3 gold each
             return spawned_country.gold >= (3 * quantity)
         elif action == "recruit_people":
+            # Recruit people costs 2 gold each
             return spawned_country.gold >= (2 * quantity)
         elif action == "acquire_territory":
+            # Acquire territory costs 3 gold each
             return spawned_country.gold >= (3 * quantity)
 
         return False

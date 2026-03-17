@@ -275,6 +275,15 @@ class TestGameLogic:
         assert country.people == 5  # 3 + 2
         assert result["changes"]["cost"] == 4
 
+    def test_perform_action_recruit_people_insufficient_funds(self):
+        """Test recruiting people with insufficient gold."""
+        country = self.create_mock_spawned_country(gold=1, people=3)
+
+        result = GameLogic.perform_action(country, "recruit_people", 1)
+
+        assert result["success"] == False
+        assert country.people == 3  # unchanged
+
     def test_perform_action_acquire_territory(self):
         """Test acquiring territory."""
         country = self.create_mock_spawned_country(gold=9, territories=4)
@@ -284,3 +293,25 @@ class TestGameLogic:
         assert country.gold == 3  # 9 - (2 * 3)
         assert country.territories == 6  # 4 + 2
         assert result["changes"]["cost"] == 6
+
+    def test_perform_action_acquire_territory_insufficient_funds(self):
+        """Test acquiring territory with insufficient gold."""
+        country = self.create_mock_spawned_country(gold=2, territories=4)
+
+        result = GameLogic.perform_action(country, "acquire_territory", 1)
+
+        assert result["success"] == False
+        assert country.territories == 4  # unchanged
+
+    # ---- unknown action tests ----
+
+    def test_can_perform_unknown_action(self):
+        """Test that unknown action types return False."""
+        country = self.create_mock_spawned_country(gold=100)
+        assert GameLogic.can_perform_action(country, "unknown_action", 1) == False
+
+    def test_perform_unknown_action(self):
+        """Test that unknown action types fail."""
+        country = self.create_mock_spawned_country(gold=100)
+        result = GameLogic.perform_action(country, "unknown_action", 1)
+        assert result["success"] == False
