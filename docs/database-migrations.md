@@ -66,8 +66,9 @@ alembic history
 1. Make changes to models in `backend/app/models/models.py`
 2. Auto-generate the migration: `alembic revision --autogenerate -m "add new_column to table"`
 3. Review the generated migration in `backend/alembic/versions/`
-4. Apply: `alembic upgrade head`
-5. Test rollback: `alembic downgrade -1` then `alembic upgrade head`
+4. Verify the `revision` and `down_revision` identifiers form a valid chain (each revision ID must be unique, and `down_revision` must point to the previous migration)
+5. Apply: `alembic upgrade head`
+6. Test rollback: `alembic downgrade -1` then `alembic upgrade head`
 
 ## Migration Files
 
