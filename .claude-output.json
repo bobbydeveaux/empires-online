@@ -1,0 +1,13 @@
+{
+  "prTitle": "feat: add recruit_people, acquire_territory, stability check with comprehensive unit tests",
+  "prBody": "## Summary\n\nExtends GameLogic with three new capabilities and adds comprehensive test coverage for game logic and WebSocket endpoints.\n\n### Game Logic Changes (`backend/app/services/game_logic.py`)\n- **`recruit_people` action**: Costs 2 gold per person, increments `people` count\n- **`acquire_territory` action**: Costs 3 gold per territory, increments `territories` count\n- **`run_stability_check()` method**: Deducts gold equal to `(revolters - supporters)` when revolters > supporters, floors gold at 0. No-op when supporters >= revolters.\n\n### New Unit Tests (`backend/app/tests/test_game_logic.py`) — 14 new tests\n- `recruit_people`: can_perform_action validation, perform_action execution, insufficient funds\n- `acquire_territory`: can_perform_action validation, perform_action execution, insufficient funds\n- `run_stability_check`: revolters > supporters penalty, supporters >= revolters no-op, equal values, gold floor at 0\n- Unknown action type handling (2 tests)\n\n### New WebSocket Tests (`backend/app/tests/test_ws_endpoint.py`) — 6 new tests\n- **Broadcasting**: Two clients receive broadcasts, chat broadcast to all clients, room isolation between games\n- **Reconnection**: Reconnect after disconnect, room state preserved for other clients during reconnect, Authorization header fallback\n\n### Documentation\n- Updated `docs/websocket-api.md` to list new action types (recruit_people, acquire_territory)\n\n### Review Feedback\n- Verified that `broadcast_event()` is already async (review issue was already fixed in current code)\n- Verified no unused `Optional` import in `game_broadcast.py`\n\nCloses #41",
+  "testsPass": true,
+  "filesChanged": [
+    "backend/app/services/game_logic.py",
+    "backend/app/tests/test_game_logic.py",
+    "backend/app/tests/test_ws_endpoint.py",
+    "docs/websocket-api.md"
+  ],
+  "docsUpdated": ["docs/websocket-api.md"],
+  "docsReviewed": ["README.md", "docs/database-migrations.md"]
+}
