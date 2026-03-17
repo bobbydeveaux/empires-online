@@ -11,6 +11,7 @@ from app.services.game_broadcast import (
     round_advanced_message,
     game_completed_message,
     player_joined_game_message,
+    stability_check_message,
     broadcast_event,
     _broadcast,
 )
@@ -100,6 +101,18 @@ class TestMessageBuilders:
             "game_id": 1,
             "player": {"id": 2, "username": "charlie"},
             "country_name": "Germany",
+        }
+
+    def test_stability_check_message(self):
+        results = [
+            {"player_id": 1, "stable": True, "gold_lost": 0},
+            {"player_id": 2, "stable": False, "gold_lost": 3},
+        ]
+        msg = stability_check_message(game_id=1, results=results)
+        assert msg == {
+            "type": "stability_check",
+            "game_id": 1,
+            "results": results,
         }
 
 
