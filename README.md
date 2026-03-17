@@ -17,6 +17,7 @@ This implementation consists of:
 - **Backend**: FastAPI-based REST API with PostgreSQL database
 - **Frontend**: React TypeScript SPA with real-time updates
 - **Database**: PostgreSQL with SQLAlchemy ORM and Alembic migrations
+- **Real-time**: WebSocket connections with PostgreSQL NOTIFY/LISTEN for cross-process event fanout
 - **Deployment**: Docker containers with docker-compose
 
 ## Quick Start

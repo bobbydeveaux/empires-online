@@ -140,8 +140,37 @@ Both `Game.tsx` and `GameLobby.tsx` display a visual connection status indicator
 
 ## Architecture
 
-- **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms with connect, disconnect, join_room, leave_room, and broadcast_to_room operations.
+- **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms with connect, disconnect, join_room, leave_room, and broadcast_to_room operations. Includes PostgreSQL NOTIFY/LISTEN support for cross-process event fanout.
 - **WebSocket Route** (`backend/app/api/routes/ws.py`): Handles the `/ws/{game_id}` endpoint, JWT validation, and message dispatch.
 - **useGameWebSocket** (`frontend/src/hooks/useGameWebSocket.ts`): React hook that manages WebSocket lifecycle, reconnection, and state synchronization.
 - **WebSocket Types** (`frontend/src/types/index.ts`): TypeScript discriminated union types for all WebSocket messages (`WsServerMessage`).
 - **Nginx Proxy** (`frontend/nginx.conf`): Proxies `/ws/` to the backend with WebSocket upgrade headers and a 24-hour `proxy_read_timeout` to support long-lived connections.
+
+### Cross-Process Event Fanout (PostgreSQL NOTIFY/LISTEN)
+
+When running multiple backend processes (e.g. behind a load balancer), game state changes must be broadcast to all WebSocket connections regardless of which process they are connected to. The `ConnectionManager` achieves this using PostgreSQL's built-in NOTIFY/LISTEN mechanism:
+
+1. **On startup**, the manager creates:
+   - A dedicated `asyncpg` connection that `LISTEN`s on the `game_events` channel
+   - A connection pool for issuing `NOTIFY` commands
+
+2. **Publishing events**: Game endpoints call `manager.notify(game_id, message)` which sends a `pg_notify('game_events', payload)` where the payload is JSON containing `game_id` and the message body.
+
+3. **Receiving events**: The LISTEN connection receives notifications and the callback parses the payload, then broadcasts to all local WebSocket connections in the relevant game room.
+
+4. **Fallback**: If PostgreSQL is unavailable (e.g. in tests), `notify()` falls back to a direct local broadcast.
+
+```
+┌─────────────┐     NOTIFY      ┌──────────────┐
+│  Backend 1  │ ──────────────► │  PostgreSQL   │
+│  (REST API) │                 │  game_events  │
+└─────────────┘                 └──────┬───────┘
+                                       │ LISTEN
+                        ┌──────────────┼──────────────┐
+                        ▼              ▼              ▼
+                  ┌───────────┐  ┌───────────┐  ┌───────────┐
+                  │ Backend 1 │  │ Backend 2 │  │ Backend N │
+                  │ WebSocket │  │ WebSocket │  │ WebSocket │
+                  │ clients   │  │ clients   │  │ clients   │
+                  └───────────┘  └───────────┘  └───────────┘
+```
