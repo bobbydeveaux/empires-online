@@ -1,48 +1,76 @@
-# Database Migrations
+# Database Migrations with Alembic
 
-Empires Online uses [Alembic](https://alembic.sqlalchemy.org/) for database schema migrations.
+## Overview
 
-## Setup
+Empires Online uses [Alembic](https://alembic.sqlalchemy.org/) for database schema migrations, providing version-controlled, reversible database changes. Migrations run automatically on application startup via `init_db.py`, replacing the previous `Base.metadata.create_all()` approach.
 
-Alembic configuration lives in `backend/`:
+## Configuration
 
-- `backend/alembic.ini` — Alembic configuration (connection URL, logging)
-- `backend/alembic/env.py` — Migration environment (loads SQLAlchemy models and metadata)
-- `backend/alembic/script.py.mako` — Template for new migration files
-- `backend/alembic/versions/` — Migration scripts
+- **`backend/alembic.ini`** - Alembic configuration file. The `sqlalchemy.url` is set dynamically from `app.core.config.settings.DATABASE_URL` in `env.py`.
+- **`backend/alembic/env.py`** - Migration environment that imports `Base` metadata from `app.core.database` and all models for autogenerate support.
+- **`backend/alembic/versions/`** - Directory containing migration scripts.
+- **`backend/alembic/script.py.mako`** - Template for auto-generated migration files.
 
-The `DATABASE_URL` environment variable overrides the default connection string in `alembic.ini`.
+## How It Works
 
-## Running Migrations
+On startup, `backend/app/init_db.py`:
 
-From the `backend/` directory:
+1. Loads the Alembic config from `alembic.ini`
+2. Sets the database URL from application settings
+3. Runs `alembic upgrade head` programmatically
+4. Seeds initial data (countries, test user) if not already present
 
+Internally, `env.py`:
+
+1. Imports `Base` from `app.core.database` and all models from `app.models.models`
+2. Reads `DATABASE_URL` from `app.core.config.settings`, which loads from environment variables or `.env`
+3. Alembic compares the current database schema against the SQLAlchemy model metadata to detect changes
+4. Migration scripts in `versions/` are applied in order to bring the database to the desired state
+
+## Common Commands
+
+All commands should be run from the `backend/` directory.
+
+### Check current migration status
 ```bash
-# Apply all pending migrations
-alembic upgrade head
-
-# Rollback one migration
-alembic downgrade -1
-
-# Show current revision
 alembic current
+```
 
-# Show migration history
+### Apply all pending migrations
+```bash
+alembic upgrade head
+```
+
+### Rollback the last migration
+```bash
+alembic downgrade -1
+```
+
+### Auto-generate a new migration from model changes
+```bash
+alembic revision --autogenerate -m "description of changes"
+```
+
+### Create a blank migration script
+```bash
+alembic revision -m "description of changes"
+```
+
+### View migration history
+```bash
 alembic history
 ```
 
-## Creating New Migrations
+## Adding a New Migration
 
-```bash
-# Auto-generate from model changes
-alembic revision --autogenerate -m "description of change"
+1. Make changes to models in `backend/app/models/models.py`
+2. Auto-generate the migration: `alembic revision --autogenerate -m "add new_column to table"`
+3. Review the generated migration in `backend/alembic/versions/`
+4. Apply: `alembic upgrade head`
+5. Test rollback: `alembic downgrade -1` then `alembic upgrade head`
 
-# Create empty migration
-alembic revision -m "description of change"
-```
-
-## Migration History
+## Migration Files
 
 | Revision | Description |
 |----------|-------------|
-| `001` | Add `stability_checked` column to `games` table |
+| `001` | Initial schema - all tables (players, countries, games, spawned_countries, game_history) with `stability_checked` column on games |
