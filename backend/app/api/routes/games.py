@@ -28,6 +28,7 @@ from app.services.game_broadcast import (
     round_advanced_message,
     game_completed_message,
     player_joined_game_message,
+    stability_check_message,
 )
 import json
 
@@ -459,6 +460,25 @@ def next_round(
         raise HTTPException(
             status_code=400, detail="Can only advance from actions phase"
         )
+
+    # Run stability check for all players before advancing
+    spawned_countries = (
+        db.query(SpawnedCountry).filter(SpawnedCountry.game_id == game_id).all()
+    )
+    stability_results = []
+    for sc in spawned_countries:
+        result = GameLogic.run_stability_check(sc)
+        player = db.query(Player).filter(Player.id == sc.player_id).first()
+        result["player_id"] = sc.player_id
+        result["player_name"] = player.username if player else "Unknown"
+        stability_results.append(result)
+
+    # Broadcast stability check results
+    background_tasks.add_task(
+        broadcast_event,
+        game_id,
+        stability_check_message(game_id=game_id, results=stability_results),
+    )
 
     # Reset development and action completion for all players
     db.query(SpawnedCountry).filter(SpawnedCountry.game_id == game_id).update(

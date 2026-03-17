@@ -107,6 +107,17 @@ def player_joined_game_message(
     }
 
 
+def stability_check_message(
+    game_id: int,
+    results: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    return {
+        "type": "stability_check",
+        "game_id": game_id,
+        "results": results,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Broadcast dispatcher (runs as a BackgroundTask)
 # ---------------------------------------------------------------------------
