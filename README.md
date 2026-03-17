@@ -204,7 +204,7 @@ docker-compose down
 - [ ] Create tournament system
 - [ ] Add game variants (short/long games)
 - [ ] Implement advanced rules (diplomacy, events)
-- [ ] Mobile-responsive design
+- [x] Mobile-responsive design
 - [ ] Performance optimization
 
 ## Technology Stack

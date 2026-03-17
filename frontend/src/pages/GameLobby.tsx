@@ -54,9 +54,9 @@ const GameLobby: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div className="page-header">
         <h1>Game Lobby</h1>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button
             className="btn btn-secondary"
             onClick={loadData}
@@ -218,8 +218,8 @@ const GameCardWithWs: React.FC<GameCardWithWsProps> = ({ game, countries, onJoin
 
   return (
     <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3>Game #{game.id}</h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <h3 style={{ margin: 0 }}>Game #{game.id}</h3>
         {shouldConnect && (
           <span
             style={{
