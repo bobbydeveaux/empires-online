@@ -1,7 +1,5 @@
 """Unit tests for game state broadcasting module."""
 
-import asyncio
-import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -127,12 +125,10 @@ class TestBroadcast:
             await _broadcast(1, {"type": "test"})
 
     @pytest.mark.asyncio
-    async def test_broadcast_event_creates_task(self):
-        """broadcast_event should schedule _broadcast on the event loop."""
+    async def test_broadcast_event_delegates_to_broadcast(self):
+        """broadcast_event should await _broadcast (async background task)."""
         message = {"type": "game_started", "game_id": 1, "phase": "development"}
         with patch("app.services.game_broadcast.manager") as mock_manager:
             mock_manager.broadcast_to_room = AsyncMock()
-            broadcast_event(1, message)
-            # Allow the task to run
-            await asyncio.sleep(0.01)
+            await broadcast_event(1, message)
             mock_manager.broadcast_to_room.assert_awaited_once_with(1, message)

@@ -5,9 +5,8 @@ to all WebSocket clients connected to a game room.  These are designed
 to be scheduled as FastAPI BackgroundTasks from synchronous REST handlers.
 """
 
-import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from app.services.ws_manager import manager
 
@@ -120,13 +119,11 @@ async def _broadcast(game_id: int, message: Dict[str, Any]) -> None:
         logger.exception("Failed to broadcast %s to game %d", message.get("type"), game_id)
 
 
-def broadcast_event(game_id: int, message: Dict[str, Any]) -> None:
-    """Schedule a broadcast; safe to call from sync code (BackgroundTask target).
+async def broadcast_event(game_id: int, message: Dict[str, Any]) -> None:
+    """Broadcast a game event via WebSocket.
 
-    When used as a BackgroundTask callable, FastAPI will ``await`` the
-    coroutine returned by the inner async helper automatically.
-    This function is intentionally synchronous so it can be passed directly
-    to ``background_tasks.add_task()``.
+    This is an async function so it can be passed directly to
+    ``background_tasks.add_task()`` — FastAPI natively awaits async
+    background task callables on the main event loop.
     """
-    loop = asyncio.get_event_loop()
-    loop.create_task(_broadcast(game_id, message))
+    await _broadcast(game_id, message)
