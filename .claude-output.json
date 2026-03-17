@@ -1,0 +1,26 @@
+{
+  "prTitle": "feat: wire useGameWebSocket into Game and GameLobby, remove polling",
+  "prBody": "## Summary\n\nReplaces the 5-second `setInterval` polling in `Game.tsx` with a real-time WebSocket-driven approach using a new `useGameWebSocket` hook. Adds real-time player join/leave notifications to `GameLobby.tsx`. Includes visual connection status banners and exponential backoff reconnection.\n\n### Changes\n\n- **WebSocket types** (`types/index.ts`): Added discriminated union `WsServerMessage` covering all server-to-client message types, plus `WsConnectionStatus` type\n- **WS URL builder** (`services/api.ts`): `getWebSocketUrl()` derives `ws://` or `wss://` from current page protocol, respects `REACT_APP_WS_URL` env var\n- **`useGameWebSocket` hook** (`hooks/useGameWebSocket.ts`): Manages WebSocket lifecycle with exponential backoff reconnection (1s to 30s max), ping keepalive (25s), REST state sync on connect/reconnect, and automatic refetch on `player_joined`/`player_left`/`round_changed`/`game_state_update` events\n- **`Game.tsx`**: Replaced `setInterval(loadGameState, 5000)` with `useGameWebSocket` hook; added `ConnectionStatusBanner` component showing connection state\n- **`GameLobby.tsx`**: Each waiting game card subscribes to its game room via WebSocket for real-time player join notifications; added refresh button and focus-based refresh; green/yellow/red connection dot indicator per game card\n- **Tests**: 15 unit tests for `useGameWebSocket` hook covering connect/disconnect, reconnection, message handling, state sync, and cleanup\n- **Docs**: Updated `docs/websocket-api.md` with frontend hook documentation and `README.md` with doc links\n\nCloses #31",
+  "testsPass": true,
+  "filesChanged": [
+    "frontend/src/types/index.ts",
+    "frontend/src/services/api.ts",
+    "frontend/src/hooks/useGameWebSocket.ts",
+    "frontend/src/hooks/useGameWebSocket.test.ts",
+    "frontend/src/pages/Game.tsx",
+    "frontend/src/pages/GameLobby.tsx",
+    "docs/websocket-api.md",
+    "README.md"
+  ],
+  "docsUpdated": [
+    "docs/websocket-api.md",
+    "README.md"
+  ],
+  "docsReviewed": [
+    "DESIGN.md",
+    "COPILOT_INSTRUCTIONS.md",
+    "docs/concepts/empires-online/LLD.md",
+    "docs/concepts/empires-online/HLD.md"
+  ],
+  "completedTasks": [1, 2, 3]
+}
