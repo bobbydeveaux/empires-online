@@ -103,29 +103,61 @@ export interface AuthToken {
   token_type: string;
 }
 
-// WebSocket message types (Server → Client)
+// WebSocket message types
 
+// Shared payload types
+export interface WsPlayerInfo {
+  id: number;
+  username: string;
+}
+
+// Client → Server messages
+export interface WsPingMessage {
+  type: 'ping';
+}
+
+export interface WsChatOutMessage {
+  type: 'chat';
+  message: string;
+}
+
+export type WsClientMessage = WsPingMessage | WsChatOutMessage;
+
+// Server → Client messages
 export interface WsPlayerJoinedMessage {
   type: 'player_joined';
   game_id: number;
-  player: { id: number; username: string };
+  player: WsPlayerInfo;
 }
 
 export interface WsPlayerLeftMessage {
   type: 'player_left';
   game_id: number;
-  player: { id: number; username: string };
+  player: WsPlayerInfo;
+}
+
+export interface WsGameStateUpdateMessage {
+  type: 'game_state_update';
+  game_id: number;
+  game_state?: GameState;
+}
+
+export interface WsRoundChangedMessage {
+  type: 'round_changed';
+  game_id: number;
+  round: number;
+  phase: Game['phase'];
+}
+
+export interface WsChatInMessage {
+  type: 'chat';
+  game_id: number;
+  player: WsPlayerInfo;
+  message: string;
 }
 
 export interface WsPongMessage {
   type: 'pong';
-}
-
-export interface WsChatMessage {
-  type: 'chat';
-  game_id: number;
-  player: { id: number; username: string };
-  message: string;
 }
 
 export interface WsErrorMessage {
@@ -133,19 +165,14 @@ export interface WsErrorMessage {
   message: string;
 }
 
-export interface WsGameStateUpdateMessage {
-  type: 'game_state_update';
-  game_id: number;
-  state: GameState;
-}
-
 export type WsServerMessage =
   | WsPlayerJoinedMessage
   | WsPlayerLeftMessage
+  | WsGameStateUpdateMessage
+  | WsRoundChangedMessage
+  | WsChatInMessage
   | WsPongMessage
-  | WsChatMessage
-  | WsErrorMessage
-  | WsGameStateUpdateMessage;
+  | WsErrorMessage;
 
 // WebSocket connection status
-export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
+export type WsConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';

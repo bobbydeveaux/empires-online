@@ -1,13 +1,29 @@
 {
-  "prTitle": "feat: implement useGameWebSocket hook with exponential backoff reconnection",
-  "prBody": "## Summary\n\nImplements the `useGameWebSocket` custom React hook that provides real-time WebSocket connectivity for game state updates.\n\n### Changes\n\n- **`frontend/src/hooks/useGameWebSocket.ts`** (NEW): Custom hook that:\n  - Establishes WebSocket connection to `/ws/{game_id}?token=<jwt>` on mount\n  - Implements exponential backoff reconnection (1s → 2s → 4s → … → 30s max)\n  - Fetches full game state via REST API on every (re)connect to ensure sync\n  - Returns `gameState`, `connectionStatus`, `reconnect()`, and `lastMessage`\n  - Sends periodic ping keepalives (30s interval)\n  - Cleans up connection on unmount\n\n- **`frontend/src/types/index.ts`**: Added WebSocket message types (`WsServerMessage` discriminated union) and `ConnectionStatus` type\n\n- **`frontend/src/hooks/useGameWebSocket.test.ts`** (NEW): 13 unit tests covering connection, reconnection, backoff, state sync, message handling, cleanup\n\n- **`docs/websocket-api.md`**: Updated with frontend hook documentation and usage examples\n\nCloses #30",
+  "prTitle": "feat: implement useGameWebSocket hook and PostgreSQL NOTIFY/LISTEN fanout",
+  "prBody": "## Summary\n\nCombines two sprint-1 features: the `useGameWebSocket` React hook for real-time game state (issue #30) and the PostgreSQL NOTIFY/LISTEN backend extension for cross-process WebSocket fanout (issue #26).\n\n### Frontend changes\n\n- **`frontend/src/hooks/useGameWebSocket.ts`** (NEW): Custom hook that:\n  - Establishes WebSocket connection to `/ws/{game_id}?token=<jwt>` on mount\n  - Implements exponential backoff reconnection (1s → 2s → 4s → … → 30s max)\n  - Fetches full game state via REST API on every (re)connect to ensure sync\n  - Returns `gameState`, `connectionStatus`, `reconnect()`, and `refreshGameState()`\n  - Sends periodic ping keepalives (25s interval)\n  - Does not reconnect on auth failure (close code 1008)\n  - Cleans up connection on unmount\n\n- **`frontend/src/types/index.ts`**: Added WebSocket message types (`WsServerMessage`, `WsClientMessage` discriminated unions), `WsPlayerInfo`, `WsRoundChangedMessage`, and `WsConnectionStatus` type\n\n- **`frontend/src/hooks/useGameWebSocket.test.ts`** (NEW): Unit tests covering connection, reconnection, backoff, state sync, message handling, auth failure, cleanup\n\n### Backend changes\n\n- **`backend/app/services/ws_manager.py`**: Added `notify()` method for publishing game events via PostgreSQL NOTIFY, `start_listening()`/`stop_listening()` lifecycle methods, and `_on_notification()` callback. Falls back to local broadcast when PG is unavailable.\n- **`backend/app/main.py`**: Added FastAPI lifespan context manager that starts the PG listener on startup and stops it on shutdown.\n- **`backend/requirements.txt`**: Added `asyncpg==0.29.0` for async PostgreSQL NOTIFY/LISTEN support.\n- **`backend/app/tests/test_ws_manager.py`**: Added comprehensive tests for PG NOTIFY/LISTEN behavior.\n\n- **`docs/websocket-api.md`**: Updated with frontend hook documentation, TypeScript types reference, and cross-process fanout architecture.\n\nCloses #30",
   "testsPass": true,
   "filesChanged": [
     "frontend/src/hooks/useGameWebSocket.ts",
     "frontend/src/hooks/useGameWebSocket.test.ts",
     "frontend/src/types/index.ts",
-    "docs/websocket-api.md"
+    "frontend/src/pages/Game.tsx",
+    "frontend/src/pages/GameLobby.tsx",
+    "frontend/src/services/api.ts",
+    "backend/app/services/ws_manager.py",
+    "backend/app/main.py",
+    "backend/requirements.txt",
+    "backend/app/tests/test_ws_manager.py",
+    "docs/websocket-api.md",
+    "README.md"
   ],
-  "docsUpdated": ["docs/websocket-api.md"],
-  "docsReviewed": ["README.md", "docs/websocket-api.md"]
+  "docsUpdated": [
+    "docs/websocket-api.md",
+    "README.md"
+  ],
+  "docsReviewed": [
+    "README.md",
+    "docs/websocket-api.md",
+    "DESIGN.md",
+    "COPILOT_INSTRUCTIONS.md"
+  ]
 }

@@ -1,39 +1,59 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { GameState, ConnectionStatus, WsServerMessage } from '../types';
-import { gamesAPI } from '../services/api';
+import { useEffect, useRef, useCallback, useState } from 'react';
+import { GameState, WsServerMessage, WsConnectionStatus } from '../types';
+import { gamesAPI, getWebSocketUrl } from '../services/api';
 
-const INITIAL_RECONNECT_DELAY = 1000; // 1 second
-const MAX_RECONNECT_DELAY = 30000; // 30 seconds
-const PING_INTERVAL = 30000; // 30 seconds
+const INITIAL_RECONNECT_DELAY = 1000;
+const MAX_RECONNECT_DELAY = 30000;
+const PING_INTERVAL = 25000;
 
-/**
- * Build the WebSocket URL for a given game ID.
- * Uses the current page origin, swapping http(s) for ws(s).
- */
-function buildWsUrl(gameId: number, token: string): string {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const host = window.location.host;
-  return `${protocol}//${host}/ws/${gameId}?token=${encodeURIComponent(token)}`;
+interface UseGameWebSocketOptions {
+  /** Game ID to connect to. Pass null/undefined to skip connection. */
+  gameId: number | null | undefined;
+  /** JWT auth token. Connection won't open without it. */
+  token: string | null;
+  /** Called when a WebSocket message is received. */
+  onMessage?: (message: WsServerMessage) => void;
 }
 
 interface UseGameWebSocketReturn {
+  /** Current game state (fetched via REST, kept in sync by WS events). */
   gameState: GameState | null;
-  connectionStatus: ConnectionStatus;
+  /** WebSocket connection status. */
+  connectionStatus: WsConnectionStatus;
+  /** Manually trigger a reconnect. */
   reconnect: () => void;
-  lastMessage: WsServerMessage | null;
+  /** Manually refresh game state via REST. */
+  refreshGameState: () => Promise<void>;
 }
 
-export function useGameWebSocket(gameId: number | null): UseGameWebSocketReturn {
+export function useGameWebSocket({
+  gameId,
+  token,
+  onMessage,
+}: UseGameWebSocketOptions): UseGameWebSocketReturn {
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
-  const [lastMessage, setLastMessage] = useState<WsServerMessage | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<WsConnectionStatus>('disconnected');
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
-  const intentionalCloseRef = useRef(false);
+  const onMessageRef = useRef(onMessage);
+  onMessageRef.current = onMessage;
+
+  // Fetch full game state via REST
+  const fetchGameState = useCallback(async () => {
+    if (!gameId) return;
+    try {
+      const state = await gamesAPI.getGameState(gameId);
+      if (mountedRef.current) {
+        setGameState(state);
+      }
+    } catch {
+      // Silently fail — state will be retried on next event or reconnect
+    }
+  }, [gameId]);
 
   const clearTimers = useCallback(() => {
     if (reconnectTimerRef.current) {
@@ -46,47 +66,39 @@ export function useGameWebSocket(gameId: number | null): UseGameWebSocketReturn 
     }
   }, []);
 
-  const closeSocket = useCallback(() => {
-    intentionalCloseRef.current = true;
+  const closeConnection = useCallback(() => {
     clearTimers();
     if (wsRef.current) {
-      wsRef.current.close();
+      wsRef.current.onopen = null;
+      wsRef.current.onclose = null;
+      wsRef.current.onmessage = null;
+      wsRef.current.onerror = null;
+      if (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING) {
+        wsRef.current.close();
+      }
       wsRef.current = null;
     }
   }, [clearTimers]);
 
-  /** Fetch full game state via REST to ensure sync after (re)connect. */
-  const fetchFullState = useCallback(async (id: number) => {
-    try {
-      const state = await gamesAPI.getGameState(id);
+  const scheduleReconnect = useCallback(() => {
+    if (!mountedRef.current) return;
+    setConnectionStatus('reconnecting');
+    const delay = reconnectDelayRef.current;
+    reconnectTimerRef.current = setTimeout(() => {
       if (mountedRef.current) {
-        setGameState(state);
+        reconnectDelayRef.current = Math.min(delay * 2, MAX_RECONNECT_DELAY);
+        connect(); // eslint-disable-line @typescript-eslint/no-use-before-define
       }
-    } catch {
-      // REST fetch failed — state will update on next WS message or retry
-    }
-  }, []);
+    }, delay);
+  }, []); // connect is defined below, but stable via ref pattern
 
   const connect = useCallback(() => {
-    if (!gameId) return;
+    if (!gameId || !token || !mountedRef.current) return;
 
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      setConnectionStatus('disconnected');
-      return;
-    }
-
-    // Clean up any existing connection
-    if (wsRef.current) {
-      intentionalCloseRef.current = true;
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-
-    intentionalCloseRef.current = false;
+    closeConnection();
     setConnectionStatus('connecting');
 
-    const url = buildWsUrl(gameId, token);
+    const url = getWebSocketUrl(gameId, token);
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
@@ -95,8 +107,8 @@ export function useGameWebSocket(gameId: number | null): UseGameWebSocketReturn 
       setConnectionStatus('connected');
       reconnectDelayRef.current = INITIAL_RECONNECT_DELAY;
 
-      // Fetch full state on connect to ensure sync
-      fetchFullState(gameId);
+      // Fetch full state on connect/reconnect to ensure sync
+      fetchGameState();
 
       // Start ping keepalive
       pingTimerRef.current = setInterval(() => {
@@ -108,96 +120,72 @@ export function useGameWebSocket(gameId: number | null): UseGameWebSocketReturn 
 
     ws.onmessage = (event: MessageEvent) => {
       if (!mountedRef.current) return;
-
-      let message: WsServerMessage;
       try {
-        message = JSON.parse(event.data);
+        const message: WsServerMessage = JSON.parse(event.data);
+
+        // Forward to callback
+        onMessageRef.current?.(message);
+
+        // Handle state-affecting messages
+        switch (message.type) {
+          case 'game_state_update':
+            if (message.game_state) {
+              setGameState(message.game_state);
+            } else {
+              fetchGameState();
+            }
+            break;
+          case 'player_joined':
+          case 'player_left':
+          case 'round_changed':
+            // Re-fetch full state from REST for consistency
+            fetchGameState();
+            break;
+          // pong, chat, error — no state refresh needed
+        }
       } catch {
-        return; // Ignore unparseable messages
-      }
-
-      setLastMessage(message);
-
-      switch (message.type) {
-        case 'game_state_update':
-          setGameState(message.state);
-          break;
-
-        case 'player_joined':
-        case 'player_left':
-          // A player change occurred — refresh full state to stay in sync
-          fetchFullState(gameId);
-          break;
-
-        case 'pong':
-          // Keepalive response — no action needed
-          break;
-
-        case 'chat':
-        case 'error':
-          // Exposed via lastMessage for consumers to handle
-          break;
+        // Ignore malformed messages
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event: CloseEvent) => {
+      clearTimers();
       if (!mountedRef.current) return;
-
-      // Clean up ping timer
-      if (pingTimerRef.current) {
-        clearInterval(pingTimerRef.current);
-        pingTimerRef.current = null;
-      }
-
-      if (intentionalCloseRef.current) {
+      // 1008 = policy violation (auth failure) — don't reconnect
+      if (event.code === 1008) {
         setConnectionStatus('disconnected');
         return;
       }
-
-      // Schedule reconnect with exponential backoff
-      setConnectionStatus('reconnecting');
-      const delay = reconnectDelayRef.current;
-      reconnectTimerRef.current = setTimeout(() => {
-        if (mountedRef.current) {
-          connect();
-        }
-      }, delay);
-
-      // Increase delay for next attempt (exponential backoff, capped at max)
-      reconnectDelayRef.current = Math.min(delay * 2, MAX_RECONNECT_DELAY);
+      scheduleReconnect();
     };
 
     ws.onerror = () => {
-      // The onclose handler will fire after onerror, handling reconnection
+      // onclose will fire after onerror, so reconnect is handled there
     };
-  }, [gameId, fetchFullState, clearTimers]);
+  }, [gameId, token, closeConnection, fetchGameState, clearTimers, scheduleReconnect]);
 
-  /** Manual reconnect — resets backoff delay and reconnects immediately. */
+  // Manual reconnect
   const reconnect = useCallback(() => {
     reconnectDelayRef.current = INITIAL_RECONNECT_DELAY;
-    closeSocket();
-    // Small delay to let the close propagate
-    setTimeout(() => {
-      if (mountedRef.current) {
-        intentionalCloseRef.current = false;
-        connect();
-      }
-    }, 0);
-  }, [closeSocket, connect]);
+    connect();
+  }, [connect]);
 
-  // Connect on mount / when gameId changes, disconnect on unmount
+  // Connect on mount / when gameId or token changes
   useEffect(() => {
     mountedRef.current = true;
-
-    if (gameId) {
+    if (gameId && token) {
       connect();
     }
-
     return () => {
       mountedRef.current = false;
-      closeSocket();
+      closeConnection();
     };
-  }, [gameId, connect, closeSocket]);
+  }, [gameId, token, connect, closeConnection]);
 
-  return { gameState, connectionStatus, reconnect, lastMessage };
+  return {
+    gameState,
+    connectionStatus,
+    reconnect,
+    refreshGameState: fetchGameState,
+  };
 }

@@ -13,6 +13,21 @@ import {
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
+/**
+ * Build a WebSocket URL for a given game room.
+ * Derives ws:// or wss:// from the current page protocol.
+ */
+export function getWebSocketUrl(gameId: number, token: string): string {
+  const wsBase = process.env.REACT_APP_WS_URL;
+  if (wsBase) {
+    return `${wsBase}/ws/${gameId}?token=${encodeURIComponent(token)}`;
+  }
+  // Derive from current location
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.host;
+  return `${protocol}//${host}/ws/${gameId}?token=${encodeURIComponent(token)}`;
+}
+
 const api = axios.create({
   baseURL: API_BASE_URL,
 });
@@ -110,5 +125,35 @@ export const gamesAPI = {
     return response.data;
   }
 };
+
+// WebSocket URL builder
+export function buildWebSocketUrl(gameId: number): string {
+  const token = localStorage.getItem('authToken');
+
+  // Determine base: use the configured API base or derive from window.location
+  let wsBase: string;
+
+  if (API_BASE_URL.startsWith('http://') || API_BASE_URL.startsWith('https://')) {
+    // Absolute URL configured — convert http(s) to ws(s)
+    wsBase = API_BASE_URL.replace(/^http/, 'ws');
+  } else {
+    // Relative path (e.g. "/api") — derive from current page origin
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    wsBase = `${protocol}//${window.location.host}`;
+  }
+
+  // Remove trailing slash
+  wsBase = wsBase.replace(/\/$/, '');
+
+  // The WS endpoint is at /ws/{game_id}, not under /api
+  // Strip the /api suffix if present so we hit the root-level /ws route
+  wsBase = wsBase.replace(/\/api$/, '');
+
+  let url = `${wsBase}/ws/${gameId}`;
+  if (token) {
+    url += `?token=${encodeURIComponent(token)}`;
+  }
+  return url;
+}
 
 export default api;

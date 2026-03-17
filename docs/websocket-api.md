@@ -43,6 +43,13 @@ Invalid or missing tokens result in a close with code `1008` (Policy Violation).
 | `chat` | `{"game_id", "player": {"id", "username"}, "message"}` | Chat message broadcast |
 | `error` | `{"message": "..."}` | Error response for unknown message types |
 
+### Future Server → Client (reserved)
+
+| Type | Payload | Description |
+|------|---------|-------------|
+| `game_state_update` | `{"game_id", "game_state?": GameState}` | Full or partial game state push |
+| `round_changed` | `{"game_id", "round", "phase"}` | Round/phase transition notification |
+
 ## Example (JavaScript)
 
 ```javascript
@@ -63,31 +70,107 @@ ws.onopen = () => {
 };
 ```
 
-## Frontend Hook
+## Frontend Integration
 
-The `useGameWebSocket` hook (`frontend/src/hooks/useGameWebSocket.ts`) provides a React-friendly interface for WebSocket connections:
+### TypeScript Types
+
+All WebSocket message types are defined in `frontend/src/types/index.ts` as a discriminated union on the `type` field:
+
+- **`WsClientMessage`** — union of messages the client can send (`ping`, `chat`)
+- **`WsServerMessage`** — union of messages the server can send (`player_joined`, `player_left`, `pong`, `chat`, `error`, `game_state_update`, `round_changed`)
+
+### `useGameWebSocket` Hook
+
+The `useGameWebSocket` hook (`frontend/src/hooks/useGameWebSocket.ts`) provides real-time game state updates, replacing the previous 5-second polling mechanism.
 
 ```typescript
 import { useGameWebSocket } from '../hooks/useGameWebSocket';
 
-const { gameState, connectionStatus, reconnect, lastMessage } = useGameWebSocket(gameId);
+const { gameState, connectionStatus, reconnect, refreshGameState } = useGameWebSocket({
+  gameId: 1,
+  token: 'jwt-token',
+  onMessage: (msg) => console.log(msg),
+});
 ```
 
 **Returns:**
-- `gameState` — Current `GameState` (synced via REST on connect and updated via WS messages)
-- `connectionStatus` — One of `'connecting'`, `'connected'`, `'disconnected'`, `'reconnecting'`
-- `reconnect()` — Manually trigger a reconnection (resets backoff)
-- `lastMessage` — The most recent `WsServerMessage` received
+- `gameState` — Current `GameState` object (fetched via REST, kept in sync by WS events)
+- `connectionStatus` — `'connecting' | 'connected' | 'disconnected' | 'reconnecting'`
+- `reconnect()` — Manually trigger a reconnect
+- `refreshGameState()` — Manually fetch fresh state via REST
 
-**Features:**
-- Automatic exponential backoff reconnection: 1s → 2s → 4s → … → 30s (max)
-- Full game state sync via REST API on every (re)connect
-- Periodic ping keepalive (every 30s)
-- Automatic cleanup on unmount
+**Behavior:**
+- Connects to `WS /ws/{gameId}?token=<jwt>` on mount
+- Fetches full game state via REST on connect and reconnect
+- Refetches state when `player_joined`, `player_left`, `round_changed`, or `game_state_update` messages arrive
+- Implements exponential backoff reconnection (1s, 2s, 4s, ... up to 30s max)
+- Does not reconnect on auth failure (close code 1008)
+- Sends ping keepalive every 25 seconds
+- Cleans up on unmount
+
+### WebSocket URL Utilities
+
+**`getWebSocketUrl`** — Used by `useGameWebSocket`, accepts explicit token:
+
+```typescript
+import { getWebSocketUrl } from '../services/api';
+
+const url = getWebSocketUrl(gameId, token);
+// Returns: ws://host/ws/{gameId}?token={token}
+// Or: wss://host/ws/{gameId}?token={token} (when on HTTPS)
+```
+
+**`buildWebSocketUrl`** — Reads JWT from localStorage automatically:
+
+```typescript
+import { buildWebSocketUrl } from '../services/api';
+
+const url = buildWebSocketUrl(gameId);
+const ws = new WebSocket(url);
+```
+
+Both utilities derive `ws://` or `wss://` from the current page protocol (or configured `REACT_APP_API_URL` / `REACT_APP_WS_URL`) and strip the `/api` suffix to hit the root-level `/ws` route.
+
+### Connection Status Banner
+
+Both `Game.tsx` and `GameLobby.tsx` display a visual connection status indicator:
+- **Yellow banner** when connecting or reconnecting
+- **Red banner** with a reconnect button when disconnected
+- **Hidden** when connected (normal state)
 
 ## Architecture
 
-- **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms with connect, disconnect, join_room, leave_room, and broadcast_to_room operations.
+- **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms with connect, disconnect, join_room, leave_room, and broadcast_to_room operations. Includes PostgreSQL NOTIFY/LISTEN support for cross-process event fanout.
 - **WebSocket Route** (`backend/app/api/routes/ws.py`): Handles the `/ws/{game_id}` endpoint, JWT validation, and message dispatch.
+- **useGameWebSocket** (`frontend/src/hooks/useGameWebSocket.ts`): React hook that manages WebSocket lifecycle, reconnection, and state synchronization.
+- **WebSocket Types** (`frontend/src/types/index.ts`): TypeScript discriminated union types for all WebSocket messages (`WsServerMessage`).
 - **Nginx Proxy** (`frontend/nginx.conf`): Proxies `/ws/` to the backend with WebSocket upgrade headers and a 24-hour `proxy_read_timeout` to support long-lived connections.
-- **Frontend Hook** (`frontend/src/hooks/useGameWebSocket.ts`): React hook with reconnection logic, state management, and REST sync.
+
+### Cross-Process Event Fanout (PostgreSQL NOTIFY/LISTEN)
+
+When running multiple backend processes (e.g. behind a load balancer), game state changes must be broadcast to all WebSocket connections regardless of which process they are connected to. The `ConnectionManager` achieves this using PostgreSQL's built-in NOTIFY/LISTEN mechanism:
+
+1. **On startup**, the manager creates:
+   - A dedicated `asyncpg` connection that `LISTEN`s on the `game_events` channel
+   - A connection pool for issuing `NOTIFY` commands
+
+2. **Publishing events**: Game endpoints call `manager.notify(game_id, message)` which sends a `pg_notify('game_events', payload)` where the payload is JSON containing `game_id` and the message body.
+
+3. **Receiving events**: The LISTEN connection receives notifications and the callback parses the payload, then broadcasts to all local WebSocket connections in the relevant game room.
+
+4. **Fallback**: If PostgreSQL is unavailable (e.g. in tests), `notify()` falls back to a direct local broadcast.
+
+```
+┌─────────────┐     NOTIFY      ┌──────────────┐
+│  Backend 1  │ ──────────────► │  PostgreSQL   │
+│  (REST API) │                 │  game_events  │
+└─────────────┘                 └──────┬───────┘
+                                       │ LISTEN
+                        ┌──────────────┼──────────────┐
+                        ▼              ▼              ▼
+                  ┌───────────┐  ┌───────────┐  ┌───────────┐
+                  │ Backend 1 │  │ Backend 2 │  │ Backend N │
+                  │ WebSocket │  │ WebSocket │  │ WebSocket │
+                  │ clients   │  │ clients   │  │ clients   │
+                  └───────────┘  └───────────┘  └───────────┘
+```

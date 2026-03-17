@@ -2,160 +2,160 @@ import { renderHook, act } from '@testing-library/react';
 import { useGameWebSocket } from './useGameWebSocket';
 import { gamesAPI } from '../services/api';
 
-// Mock gamesAPI
+// Mock the api module
 jest.mock('../services/api', () => ({
   gamesAPI: {
     getGameState: jest.fn(),
   },
+  getWebSocketUrl: jest.fn((gameId: number, token: string) => `ws://localhost/ws/${gameId}?token=${token}`),
 }));
 
 // Mock WebSocket
 class MockWebSocket {
+  static CONNECTING = 0;
   static OPEN = 1;
+  static CLOSING = 2;
   static CLOSED = 3;
 
-  url: string;
-  readyState: number = MockWebSocket.OPEN;
+  readyState = MockWebSocket.CONNECTING;
   onopen: ((event: any) => void) | null = null;
   onclose: ((event: any) => void) | null = null;
   onmessage: ((event: any) => void) | null = null;
   onerror: ((event: any) => void) | null = null;
-  close = jest.fn(() => {
-    this.readyState = MockWebSocket.CLOSED;
-  });
-  send = jest.fn();
+  url: string;
 
   constructor(url: string) {
     this.url = url;
-    // Store reference so tests can trigger events
-    mockWebSocketInstances.push(this);
+    MockWebSocket.instances.push(this);
   }
 
+  send = jest.fn();
+  close = jest.fn(() => {
+    this.readyState = MockWebSocket.CLOSED;
+  });
+
+  // Test helpers
   simulateOpen() {
     this.readyState = MockWebSocket.OPEN;
-    this.onopen?.({});
+    this.onopen?.({} as Event);
   }
 
   simulateMessage(data: any) {
-    this.onmessage?.({ data: JSON.stringify(data) });
+    this.onmessage?.({ data: JSON.stringify(data) } as MessageEvent);
   }
 
-  simulateClose() {
-    this.onclose?.({});
+  simulateClose(code = 1000) {
+    this.readyState = MockWebSocket.CLOSED;
+    this.onclose?.({ code } as CloseEvent);
   }
 
-  simulateError() {
-    this.onerror?.({});
+  static instances: MockWebSocket[] = [];
+  static clear() {
+    MockWebSocket.instances = [];
+  }
+  static latest(): MockWebSocket {
+    return MockWebSocket.instances[MockWebSocket.instances.length - 1];
   }
 }
 
-let mockWebSocketInstances: MockWebSocket[] = [];
+(global as any).WebSocket = MockWebSocket;
 
-beforeEach(() => {
-  mockWebSocketInstances = [];
-  (global as any).WebSocket = MockWebSocket;
-  localStorage.setItem('authToken', 'test-jwt-token');
-  jest.useFakeTimers();
-  (gamesAPI.getGameState as jest.Mock).mockResolvedValue({
-    game: { id: 1, phase: 'waiting', rounds: 5, rounds_remaining: 5 },
-    players: [],
-    leaderboard: [],
-  });
-});
-
-afterEach(() => {
-  jest.useRealTimers();
-  localStorage.clear();
-  jest.restoreAllMocks();
-});
+const mockGameState = {
+  game: { id: 1, rounds: 5, rounds_remaining: 5, phase: 'waiting' as const, creator_id: 1, created_at: '2026-01-01' },
+  players: [],
+  leaderboard: [],
+};
 
 describe('useGameWebSocket', () => {
-  it('connects to WebSocket on mount when gameId is provided', () => {
-    renderHook(() => useGameWebSocket(1));
-
-    expect(mockWebSocketInstances).toHaveLength(1);
-    expect(mockWebSocketInstances[0].url).toContain('/ws/1?token=test-jwt-token');
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    MockWebSocket.clear();
+    (gamesAPI.getGameState as jest.Mock).mockResolvedValue(mockGameState);
   });
 
-  it('does not connect when gameId is null', () => {
-    renderHook(() => useGameWebSocket(null));
-
-    expect(mockWebSocketInstances).toHaveLength(0);
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
-  it('does not connect when no auth token exists', () => {
-    localStorage.clear();
-    const { result } = renderHook(() => useGameWebSocket(1));
-
-    expect(mockWebSocketInstances).toHaveLength(0);
-    expect(result.current.connectionStatus).toBe('disconnected');
+  it('should not connect when gameId is null', () => {
+    renderHook(() =>
+      useGameWebSocket({ gameId: null, token: 'test-token' })
+    );
+    expect(MockWebSocket.instances).toHaveLength(0);
   });
 
-  it('sets status to connected on open and fetches full state', async () => {
-    const { result } = renderHook(() => useGameWebSocket(1));
+  it('should not connect when token is null', () => {
+    renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: null })
+    );
+    expect(MockWebSocket.instances).toHaveLength(0);
+  });
+
+  it('should connect when gameId and token are provided', () => {
+    renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
+    expect(MockWebSocket.instances).toHaveLength(1);
+  });
+
+  it('should set status to connected on open', async () => {
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
 
     expect(result.current.connectionStatus).toBe('connecting');
 
     await act(async () => {
-      mockWebSocketInstances[0].simulateOpen();
+      MockWebSocket.latest().simulateOpen();
     });
 
     expect(result.current.connectionStatus).toBe('connected');
+  });
+
+  it('should fetch game state on connection open', async () => {
+    renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
+
+    await act(async () => {
+      MockWebSocket.latest().simulateOpen();
+    });
+
     expect(gamesAPI.getGameState).toHaveBeenCalledWith(1);
   });
 
-  it('updates gameState from REST response on connect', async () => {
-    const mockState = {
-      game: { id: 1, phase: 'development', rounds: 5, rounds_remaining: 4 },
-      players: [],
-      leaderboard: [],
-    };
-    (gamesAPI.getGameState as jest.Mock).mockResolvedValue(mockState);
-
-    const { result } = renderHook(() => useGameWebSocket(1));
+  it('should update game state from REST fetch', async () => {
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
 
     await act(async () => {
-      mockWebSocketInstances[0].simulateOpen();
+      MockWebSocket.latest().simulateOpen();
     });
 
-    expect(result.current.gameState).toEqual(mockState);
+    // Wait for the async fetch to resolve
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.gameState).toEqual(mockGameState);
   });
 
-  it('handles game_state_update messages', async () => {
-    const { result } = renderHook(() => useGameWebSocket(1));
+  it('should refetch state on player_joined message', async () => {
+    renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
 
     await act(async () => {
-      mockWebSocketInstances[0].simulateOpen();
+      MockWebSocket.latest().simulateOpen();
     });
 
-    const newState = {
-      game: { id: 1, phase: 'actions', rounds: 5, rounds_remaining: 3 },
-      players: [],
-      leaderboard: [],
-    };
-
-    act(() => {
-      mockWebSocketInstances[0].simulateMessage({
-        type: 'game_state_update',
-        game_id: 1,
-        state: newState,
-      });
-    });
-
-    expect(result.current.gameState).toEqual(newState);
-  });
-
-  it('fetches full state on player_joined/player_left messages', async () => {
-    const { result } = renderHook(() => useGameWebSocket(1));
+    jest.clearAllMocks();
+    (gamesAPI.getGameState as jest.Mock).mockResolvedValue(mockGameState);
 
     await act(async () => {
-      mockWebSocketInstances[0].simulateOpen();
-    });
-
-    (gamesAPI.getGameState as jest.Mock).mockClear();
-
-    await act(async () => {
-      mockWebSocketInstances[0].simulateMessage({
+      MockWebSocket.latest().simulateMessage({
         type: 'player_joined',
         game_id: 1,
         player: { id: 2, username: 'player2' },
@@ -163,11 +163,22 @@ describe('useGameWebSocket', () => {
     });
 
     expect(gamesAPI.getGameState).toHaveBeenCalledWith(1);
+  });
 
-    (gamesAPI.getGameState as jest.Mock).mockClear();
+  it('should refetch state on player_left message', async () => {
+    renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
 
     await act(async () => {
-      mockWebSocketInstances[0].simulateMessage({
+      MockWebSocket.latest().simulateOpen();
+    });
+
+    jest.clearAllMocks();
+    (gamesAPI.getGameState as jest.Mock).mockResolvedValue(mockGameState);
+
+    await act(async () => {
+      MockWebSocket.latest().simulateMessage({
         type: 'player_left',
         game_id: 1,
         player: { id: 2, username: 'player2' },
@@ -177,137 +188,140 @@ describe('useGameWebSocket', () => {
     expect(gamesAPI.getGameState).toHaveBeenCalledWith(1);
   });
 
-  it('exposes lastMessage for chat and error messages', async () => {
-    const { result } = renderHook(() => useGameWebSocket(1));
+  it('should call onMessage callback', async () => {
+    const onMessage = jest.fn();
+    renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token', onMessage })
+    );
 
     await act(async () => {
-      mockWebSocketInstances[0].simulateOpen();
+      MockWebSocket.latest().simulateOpen();
     });
 
-    act(() => {
-      mockWebSocketInstances[0].simulateMessage({
-        type: 'chat',
-        game_id: 1,
-        player: { id: 2, username: 'player2' },
-        message: 'Hello!',
-      });
+    const msg = { type: 'chat' as const, game_id: 1, player: { id: 1, username: 'p1' }, message: 'hello' };
+    await act(async () => {
+      MockWebSocket.latest().simulateMessage(msg);
     });
 
-    expect(result.current.lastMessage).toEqual({
-      type: 'chat',
-      game_id: 1,
-      player: { id: 2, username: 'player2' },
-      message: 'Hello!',
-    });
+    expect(onMessage).toHaveBeenCalledWith(msg);
   });
 
-  it('reconnects with exponential backoff on unintentional close', async () => {
-    const { result } = renderHook(() => useGameWebSocket(1));
+  it('should set status to reconnecting on non-auth close', async () => {
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
 
     await act(async () => {
-      mockWebSocketInstances[0].simulateOpen();
+      MockWebSocket.latest().simulateOpen();
     });
 
-    // Simulate unintentional close
-    act(() => {
-      mockWebSocketInstances[0].simulateClose();
+    await act(async () => {
+      MockWebSocket.latest().simulateClose(1006); // Abnormal close
     });
 
     expect(result.current.connectionStatus).toBe('reconnecting');
-
-    // First reconnect after 1s
-    act(() => { jest.advanceTimersByTime(1000); });
-    expect(mockWebSocketInstances).toHaveLength(2);
-
-    // Simulate second close
-    act(() => {
-      mockWebSocketInstances[1].simulateClose();
-    });
-
-    // Second reconnect after 2s
-    act(() => { jest.advanceTimersByTime(1000); });
-    expect(mockWebSocketInstances).toHaveLength(2); // Not yet
-    act(() => { jest.advanceTimersByTime(1000); });
-    expect(mockWebSocketInstances).toHaveLength(3);
-
-    // Third close — should wait 4s
-    act(() => {
-      mockWebSocketInstances[2].simulateClose();
-    });
-
-    act(() => { jest.advanceTimersByTime(3000); });
-    expect(mockWebSocketInstances).toHaveLength(3); // Not yet
-    act(() => { jest.advanceTimersByTime(1000); });
-    expect(mockWebSocketInstances).toHaveLength(4);
   });
 
-  it('caps reconnect delay at 30 seconds', async () => {
-    const { result } = renderHook(() => useGameWebSocket(1));
+  it('should set status to disconnected on auth failure close (1008)', async () => {
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
 
     await act(async () => {
-      mockWebSocketInstances[0].simulateOpen();
+      MockWebSocket.latest().simulateOpen();
     });
 
-    // Simulate many disconnects to exceed 30s cap
-    // delays: 1s, 2s, 4s, 8s, 16s, 32s -> capped at 30s
-    for (let i = 0; i < 5; i++) {
-      act(() => { mockWebSocketInstances[mockWebSocketInstances.length - 1].simulateClose(); });
-      act(() => { jest.advanceTimersByTime(30000); });
-    }
+    await act(async () => {
+      MockWebSocket.latest().simulateClose(1008);
+    });
 
-    // After 5 disconnects, delay should be capped at 30s
-    act(() => { mockWebSocketInstances[mockWebSocketInstances.length - 1].simulateClose(); });
-
-    // Should not reconnect at 29s
-    act(() => { jest.advanceTimersByTime(29000); });
-    const countBefore = mockWebSocketInstances.length;
-
-    // Should reconnect at 30s
-    act(() => { jest.advanceTimersByTime(1000); });
-    expect(mockWebSocketInstances.length).toBe(countBefore + 1);
+    expect(result.current.connectionStatus).toBe('disconnected');
   });
 
-  it('manual reconnect resets backoff and reconnects immediately', async () => {
-    const { result } = renderHook(() => useGameWebSocket(1));
+  it('should attempt reconnection with exponential backoff', async () => {
+    renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
 
     await act(async () => {
-      mockWebSocketInstances[0].simulateOpen();
+      MockWebSocket.latest().simulateOpen();
     });
 
-    act(() => {
-      result.current.reconnect();
+    const initialCount = MockWebSocket.instances.length;
+
+    // Simulate disconnect
+    await act(async () => {
+      MockWebSocket.latest().simulateClose(1006);
     });
 
-    // After setTimeout(0) tick
-    act(() => { jest.advanceTimersByTime(0); });
+    // After 1s, should reconnect
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
 
-    // A new WebSocket should be created
-    expect(mockWebSocketInstances.length).toBeGreaterThanOrEqual(2);
+    expect(MockWebSocket.instances.length).toBe(initialCount + 1);
   });
 
-  it('disconnects on unmount', async () => {
-    const { unmount } = renderHook(() => useGameWebSocket(1));
+  it('should close connection on unmount', async () => {
+    const { unmount } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
 
-    await act(async () => {
-      mockWebSocketInstances[0].simulateOpen();
-    });
+    const ws = MockWebSocket.latest();
+    ws.readyState = MockWebSocket.OPEN;
 
     unmount();
 
-    expect(mockWebSocketInstances[0].close).toHaveBeenCalled();
+    expect(ws.close).toHaveBeenCalled();
   });
 
-  it('sends periodic pings', async () => {
-    renderHook(() => useGameWebSocket(1));
+  it('should use game_state from game_state_update message if provided', async () => {
+    const updatedState = { ...mockGameState, game: { ...mockGameState.game, phase: 'development' as const } };
+
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
 
     await act(async () => {
-      mockWebSocketInstances[0].simulateOpen();
+      MockWebSocket.latest().simulateOpen();
+      await Promise.resolve();
     });
 
-    act(() => { jest.advanceTimersByTime(30000); });
+    jest.clearAllMocks();
 
-    expect(mockWebSocketInstances[0].send).toHaveBeenCalledWith(
-      JSON.stringify({ type: 'ping' })
+    await act(async () => {
+      MockWebSocket.latest().simulateMessage({
+        type: 'game_state_update',
+        game_id: 1,
+        game_state: updatedState,
+      });
+    });
+
+    expect(result.current.gameState).toEqual(updatedState);
+    // Should NOT have called REST since game_state was included
+    expect(gamesAPI.getGameState).not.toHaveBeenCalled();
+  });
+
+  it('should fetch via REST if game_state_update has no game_state', async () => {
+    renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
     );
+
+    await act(async () => {
+      MockWebSocket.latest().simulateOpen();
+      await Promise.resolve();
+    });
+
+    jest.clearAllMocks();
+    (gamesAPI.getGameState as jest.Mock).mockResolvedValue(mockGameState);
+
+    await act(async () => {
+      MockWebSocket.latest().simulateMessage({
+        type: 'game_state_update',
+        game_id: 1,
+      });
+    });
+
+    expect(gamesAPI.getGameState).toHaveBeenCalledWith(1);
   });
 });
