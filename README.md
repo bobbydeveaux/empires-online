@@ -61,6 +61,8 @@ docker run -d --name empires-db -e POSTGRES_DB=empires_db -e POSTGRES_USER=empir
 
 3. **Initialize database** (runs Alembic migrations and seeds data)
 ```bash
+cd backend
+alembic upgrade head
 python app/init_db.py
 ```
 

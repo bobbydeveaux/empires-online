@@ -47,7 +47,10 @@ Invalid or missing tokens result in a close with code `1008` (Policy Violation).
 
 ```javascript
 const token = "eyJhbGci..."; // JWT from /api/auth/token
-const ws = new WebSocket(`ws://localhost:8000/ws/1?token=${token}`);
+// Via Nginx proxy (recommended)
+const ws = new WebSocket(`ws://localhost:3000/ws/1?token=${token}`);
+// Direct backend (development only)
+// const ws = new WebSocket(`ws://localhost:8000/ws/1?token=${token}`);
 
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
@@ -64,3 +67,4 @@ ws.onopen = () => {
 
 - **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms with connect, disconnect, join_room, leave_room, and broadcast_to_room operations.
 - **WebSocket Route** (`backend/app/api/routes/ws.py`): Handles the `/ws/{game_id}` endpoint, JWT validation, and message dispatch.
+- **Nginx Proxy** (`frontend/nginx.conf`): Proxies `/ws/` to the backend with WebSocket upgrade headers and a 24-hour `proxy_read_timeout` to support long-lived connections.
