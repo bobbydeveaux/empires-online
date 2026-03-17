@@ -1,4 +1,4 @@
-Now I have a thorough understanding of the codebase and design document. Let me write the PRD.
+
 
 # Product Requirements Document: Empires Online
 

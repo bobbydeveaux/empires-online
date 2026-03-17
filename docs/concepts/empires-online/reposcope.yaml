@@ -6,25 +6,25 @@
 # derived guidance for downstream AI workflows (PRD, HLD, LLD) that is NOT
 # stored in the CRD. This avoids bloating the K8s API with AI prompt hints.
 conceptName: empires-online
-scannedAt: "2026-02-27T20:31:07Z"
+scannedAt: "2026-03-17T10:28:28Z"
 
 greenfield: false
 conceptGreenfield: null
-totalFilesInScope: 47
+totalFilesInScope: 66
 totalRepoFiles: 0
 scopePrefix: ""
 
 languages:
 - language: python
-  fileCount: 19
+  fileCount: 23
 - language: typescript
   fileCount: 10
-- language: json
-  fileCount: 3
 - language: markdown
-  fileCount: 3
+  fileCount: 10
 - language: yaml
-  fileCount: 2
+  fileCount: 8
+- language: json
+  fileCount: 5
 - language: shell
   fileCount: 1
 - language: html

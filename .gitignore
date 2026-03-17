@@ -50,3 +50,15 @@ AGENTS.md
 
 # Worker temporary state files (auto-added by COO)
 .claude-state.json
+
+# Claude Code workspace files
+.claude/
+.coo/
+*.claude-session
+*.claude-checkpoint
+.worktrees/
+.codex/
+AGENTS.md
+.claude-resolution.json
+.conflict-info.json
+.claude-output.json

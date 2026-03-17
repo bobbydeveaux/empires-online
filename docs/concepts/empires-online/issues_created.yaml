@@ -1,21 +1,54 @@
-GeneratedAt: "2026-02-27T20:50:56Z"
+GeneratedAt: "2026-03-17T10:47:45Z"
 Issues:
-- IssueNumber: 15
-  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/15
+- IssueNumber: 26
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/26
   TaskID: task-empires-online-feat-websocket-backend-1
-- IssueNumber: 16
-  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/16
+- IssueNumber: 27
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/27
   TaskID: task-empires-online-feat-websocket-backend-2
-- IssueNumber: 17
-  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/17
+- IssueNumber: 28
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/28
   TaskID: task-empires-online-feat-websocket-backend-3
-- IssueNumber: 18
-  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/18
+- IssueNumber: 29
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/29
+  TaskID: task-empires-online-feat-websocket-frontend-1
+- IssueNumber: 30
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/30
+  TaskID: task-empires-online-feat-websocket-frontend-2
+- IssueNumber: 31
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/31
+  TaskID: task-empires-online-feat-websocket-frontend-3
+- IssueNumber: 32
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/32
   TaskID: task-empires-online-feat-alembic-setup-1
-- IssueNumber: 19
-  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/19
+- IssueNumber: 33
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/33
   TaskID: task-empires-online-feat-alembic-setup-2
-- IssueNumber: 20
-  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/20
+- IssueNumber: 34
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/34
   TaskID: task-empires-online-feat-alembic-setup-3
+- IssueNumber: 35
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/35
+  TaskID: task-empires-online-feat-actions-stability-1
+- IssueNumber: 36
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/36
+  TaskID: task-empires-online-feat-actions-stability-2
+- IssueNumber: 37
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/37
+  TaskID: task-empires-online-feat-actions-stability-3
+- IssueNumber: 38
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/38
+  TaskID: task-empires-online-feat-ui-polish-1
+- IssueNumber: 39
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/39
+  TaskID: task-empires-online-feat-ui-polish-2
+- IssueNumber: 40
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/40
+  TaskID: task-empires-online-feat-ui-polish-3
+- IssueNumber: 41
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/41
+  TaskID: task-empires-online-feat-backend-tests-1
+- IssueNumber: 42
+  IssueURL: https://github.com/bobbydeveaux/empires-online/issues/42
+  TaskID: task-empires-online-feat-backend-tests-2
 Plan: empires-online-plan

@@ -1,4 +1,4 @@
-GeneratedAt: "2026-02-27T20:50:37Z"
+GeneratedAt: "2026-03-17T10:46:59Z"
 Plan: empires-online-plan
 Sprints:
 - Features:
@@ -6,92 +6,144 @@ Sprints:
     FeatureTitle: WebSocket Backend Infrastructure
     Tasks:
     - AcceptanceCriteria:
-      - ConnectionManager supports connect, disconnect, join_room, leave_room, and
-        broadcast_to_room operations
-      - PostgreSQL NOTIFY/LISTEN listener runs on startup and fans out events to local
-        WebSocket connections
-      - Unit tests verify room-based message routing and connection lifecycle
+      - WebSocket manager subscribes to PostgreSQL NOTIFY channel on startup
+      - Events published via NOTIFY are received and broadcast to all local WebSocket
+        connections in the relevant room
+      - Multiple backend processes fan out events correctly via PG channel
       AgentType: backend-engineer
       Dependencies: []
-      Description: Build the ConnectionManager class in ws_manager.py that tracks
-        active WebSocket connections per game room. Implement connect/disconnect lifecycle,
-        room join/leave, and broadcast-to-room methods. Integrate PostgreSQL NOTIFY/LISTEN
-        for cross-process event fanout so multiple worker processes can relay messages.
+      Description: Extend the existing ws_manager.py to add PostgreSQL NOTIFY/LISTEN
+        for cross-process event fanout. Add a listener that subscribes to a PG channel
+        and broadcasts received events to local WebSocket connections. Add a notify
+        helper that game endpoints can call to publish state changes.
       EstimatedEffort: M
       Files:
       - backend/app/services/ws_manager.py
+      - backend/app/main.py
       ID: task-empires-online-feat-websocket-backend-1
-      Title: Implement WebSocket connection manager with room-based broadcasting
+      Title: Extend WebSocket manager with PostgreSQL NOTIFY/LISTEN
     - AcceptanceCriteria:
-      - WebSocket endpoint at /ws/{game_id} accepts connections with valid JWT and
-        rejects invalid tokens with appropriate close codes
-      - Authenticated connections are registered in the correct game room and receive
-        broadcast messages
-      - Integration test confirms end-to-end connect, authenticate, receive broadcast,
-        and disconnect flow
+      - POST to develop, perform-action, and next-round endpoints triggers a WebSocket
+        broadcast of updated game state
+      - Connected clients receive state update messages with correct game data
+      - WebSocket message types are well-defined and consistent across endpoints
       AgentType: backend-engineer
       Dependencies:
       - task-empires-online-feat-websocket-backend-1
-      Description: Create the WebSocket route in ws.py that accepts connections, validates
-        JWT tokens from query params or headers, associates the connection with a
-        game room via the ConnectionManager, and handles incoming/outgoing message
-        dispatch. Register the route in main.py.
+      Description: Modify the develop, perform-action, and next-round REST endpoints
+        in games.py to broadcast updated game state via the WebSocket manager after
+        each state change. Define WebSocket message types for state updates and use
+        the PG NOTIFY helper to push changes to all connected clients.
       EstimatedEffort: M
       Files:
+      - backend/app/api/routes/games.py
       - backend/app/api/routes/ws.py
-      - backend/app/main.py
       ID: task-empires-online-feat-websocket-backend-2
-      Title: Implement FastAPI WebSocket endpoint with JWT authentication
+      Title: Integrate game state broadcasting into REST endpoints
     - AcceptanceCriteria:
-      - Nginx proxies WebSocket connections at the /ws/ path with correct Upgrade
-        and Connection headers
-      - WebSocket connections remain stable through Nginx with appropriate timeout
-        settings
-      - Existing HTTP API routes are unaffected by the configuration change
+      - Nginx proxies WebSocket connections at /ws/ with correct Upgrade and Connection
+        headers
+      - proxy_read_timeout is configured to prevent premature connection drops
+      - WebSocket connections work end-to-end through Nginx
       AgentType: devops-engineer
       Dependencies: []
-      Description: Update the Nginx configuration to proxy WebSocket upgrade requests
-        to the FastAPI backend. Set appropriate headers (Upgrade, Connection), configure
-        timeouts for long-lived connections, and ensure regular HTTP routes continue
-        to work alongside WebSocket routes.
+      Description: Add Nginx configuration for the /ws/ location to support WebSocket
+        upgrades. Set appropriate proxy headers (Upgrade, Connection), configure proxy_read_timeout
+        for long-lived connections, and ensure the proxy passes to the backend WebSocket
+        endpoint.
       EstimatedEffort: S
       Files:
       - frontend/nginx.conf
       ID: task-empires-online-feat-websocket-backend-3
       Title: Configure Nginx WebSocket proxy
-  Sprint: 1
-- Features:
+  - FeatureID: empires-online-feat-websocket-frontend
+    FeatureTitle: WebSocket Frontend Integration
+    Tasks:
+    - AcceptanceCriteria:
+      - WebSocket message types are defined with discriminated union on message type
+        field
+      - WS URL builder constructs correct ws:// or wss:// URL from current API base
+      - Types compile with no TypeScript errors
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Define WebSocket message types (game_state_update, player_joined,
+        round_changed, error) in the types file. Add a WebSocket URL builder to api.ts
+        that derives the WS endpoint from the existing API base URL.
+      EstimatedEffort: S
+      Files:
+      - frontend/src/types/index.ts
+      - frontend/src/services/api.ts
+      ID: task-empires-online-feat-websocket-frontend-1
+      Title: Add WebSocket types and connection utility
+    - AcceptanceCriteria:
+      - Hook connects to WS endpoint on mount and disconnects on unmount
+      - Exponential backoff reconnection works with delays 1s, 2s, 4s up to 30s max
+      - Hook returns current game state, connection status, and a manual reconnect
+        function
+      - On reconnect, hook fetches full game state via REST to ensure sync
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-empires-online-feat-websocket-frontend-1
+      Description: Create the useGameWebSocket custom hook that establishes a WebSocket
+        connection for a given gameId, parses incoming messages into typed GameState
+        updates, and implements exponential backoff reconnection (1s, 2s, 4s, max
+        30s). Include automatic state sync (full game state fetch) on reconnect and
+        expose connection status.
+      EstimatedEffort: M
+      Files:
+      - frontend/src/hooks/useGameWebSocket.ts
+      ID: task-empires-online-feat-websocket-frontend-2
+      Title: Implement useGameWebSocket hook with reconnection
+    - AcceptanceCriteria:
+      - Game.tsx no longer uses setInterval for polling; state updates come from WebSocket
+      - GameLobby.tsx receives real-time player join notifications via WebSocket
+      - Connection status is visually indicated to the user (e.g., disconnected banner)
+      - Fallback to REST fetch on reconnect ensures no stale state
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-empires-online-feat-websocket-frontend-2
+      Description: Replace the setInterval-based loadGameState polling in Game.tsx
+        with the useGameWebSocket hook. Integrate the hook into GameLobby.tsx for
+        real-time player join updates. Remove all setInterval/clearInterval polling
+        code and ensure game state is driven by WebSocket push updates.
+      EstimatedEffort: M
+      Files:
+      - frontend/src/pages/Game.tsx
+      - frontend/src/pages/GameLobby.tsx
+      ID: task-empires-online-feat-websocket-frontend-3
+      Title: Wire hook into Game and GameLobby, remove polling
   - FeatureID: empires-online-feat-alembic-setup
     FeatureTitle: Alembic Migration Setup
     Tasks:
     - AcceptanceCriteria:
-      - alembic.ini exists at backend/ root with correct script_location and sqlalchemy.url
-        placeholder
-      - alembic/env.py imports Base.metadata and can connect to the database
-      - Running 'alembic current' from backend/ succeeds without errors
+      - backend/alembic.ini exists with valid Alembic configuration
+      - backend/alembic/env.py imports Base from app.core.database and uses DATABASE_URL
+        from app.core.config
+      - Running `alembic current` from the backend directory succeeds without errors
       AgentType: backend-engineer
       Dependencies: []
-      Description: Create the Alembic configuration and environment files from scratch.
-        Add alembic.ini at backend root pointing to the alembic/ directory, create
-        alembic/env.py that imports Base metadata from app.core.database and all models,
-        and add the script.mako template. Ensure env.py reads DATABASE_URL from app.core.config.settings.
+      Description: Initialize Alembic in the backend directory. Create alembic.ini
+        with the database URL pointing to the application config. Set up alembic/env.py
+        to import the application's Base metadata and Settings for the database URL,
+        enabling autogenerate support.
       EstimatedEffort: S
       Files:
       - backend/alembic.ini
       - backend/alembic/env.py
       ID: task-empires-online-feat-alembic-setup-1
-      Title: Configure Alembic migration framework
+      Title: Configure Alembic framework and alembic.ini/env.py
     - AcceptanceCriteria:
-      - Game model has stability_checked = Column(Boolean, default=False) field
-      - Migration file 001_add_stability_checked.py exists with correct upgrade (add_column)
-        and downgrade (drop_column)
-      - Running 'alembic upgrade head' applies the migration successfully
+      - Game model in models.py includes stability_checked = Column(Boolean, default=False)
+      - backend/alembic/versions/001_add_stability_checked.py exists with upgrade()
+        adding the column and downgrade() removing it
+      - Running `alembic upgrade head` applies the migration successfully
       AgentType: backend-engineer
       Dependencies:
       - task-empires-online-feat-alembic-setup-1
-      Description: Add the stability_checked Boolean column (default False) to the
-        Game model in models.py. Generate the first Alembic migration file (001_add_stability_checked.py)
-        that adds this column to the games table with upgrade and downgrade functions.
+      Description: Add the stability_checked boolean column (default False) to the
+        Game model in models.py. Generate the initial Alembic migration file that
+        adds this column to the games table. Ensure the migration has both upgrade
+        and downgrade paths.
       EstimatedEffort: S
       Files:
       - backend/app/models/models.py
@@ -100,18 +152,183 @@ Sprints:
       Title: Add stability_checked column and create initial migration
     - AcceptanceCriteria:
       - init_db.py no longer calls Base.metadata.create_all()
-      - init_db() runs alembic upgrade head programmatically before seeding data
-      - Application starts cleanly with migrations applied and seed data populated
+      - init_db.py runs alembic upgrade head programmatically on startup
+      - Existing seed data (countries, test user) is still created after migrations
+        run
       AgentType: backend-engineer
       Dependencies:
       - task-empires-online-feat-alembic-setup-2
       Description: Modify init_db.py to replace Base.metadata.create_all() with programmatic
-        Alembic upgrade-to-head on application startup. Use alembic.command.upgrade
-        with an alembic.config.Config pointing to alembic.ini. Keep the existing seed
-        data logic intact after migrations run.
+        Alembic upgrade to head on application startup. Import and invoke alembic.command.upgrade
+        so migrations run automatically when the app starts. Retain the existing seed
+        data logic.
       EstimatedEffort: S
       Files:
       - backend/app/init_db.py
       ID: task-empires-online-feat-alembic-setup-3
-      Title: Replace create_all with auto-run Alembic migrations on startup
+      Title: Replace create_all with Alembic auto-migration on startup
+  Sprint: 1
+- Features:
+  - FeatureID: empires-online-feat-actions-stability
+    FeatureTitle: New Actions, Stability Check & Phase Transitions
+    Tasks:
+    - AcceptanceCriteria:
+      - can_perform_action returns True for recruit_people when gold >= 2 and acquire_territory
+        when gold >= 3
+      - perform_action correctly deducts gold and increments people/territories for
+        the new actions
+      - run_stability_check deducts gold = (revolters - supporters) when revolters
+        > supporters, with gold floored at 0
+      - run_stability_check returns no-op result when supporters >= revolters
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Extend GameLogic with recruit_people (cost 2 gold, +1 person) and
+        acquire_territory (cost 3 gold, +1 territory) actions in both can_perform_action()
+        and perform_action(). Add run_stability_check() static method that deducts
+        gold equal to (revolters - supporters) when revolters > supporters, flooring
+        gold at 0.
+      EstimatedEffort: S
+      Files:
+      - backend/app/services/game_logic.py
+      ID: task-empires-online-feat-actions-stability-1
+      Title: Add recruit_people, acquire_territory actions and stability check to
+        GameLogic
+    - AcceptanceCriteria:
+      - POST /{game_id}/countries/{id}/end-actions sets actions_completed=True and
+        auto-transitions when all players complete
+      - GET /{game_id}/round-summary returns per-player changes for the current round
+      - Stability check runs for all players during phase transition before advancing
+        to next round
+      - Phase transitions correctly reset development_completed/actions_completed
+        flags
+      AgentType: backend-engineer
+      Dependencies:
+      - task-empires-online-feat-actions-stability-1
+      Description: Add end-actions endpoint that marks a player's actions_completed=True
+        and triggers automatic phase transition to next round (via next_round logic
+        with stability check) when all players are done. Add round summary endpoint
+        returning per-player changes from GameHistory. Update schemas.py with RoundSummary
+        response schema. Integrate stability check into the round transition flow.
+      EstimatedEffort: M
+      Files:
+      - backend/app/api/routes/games.py
+      - backend/app/schemas/schemas.py
+      ID: task-empires-online-feat-actions-stability-2
+      Title: Add end-actions endpoint, round summary, and auto phase transitions
+    - AcceptanceCriteria:
+      - WebSocket message broadcast after each perform_action call with updated game
+        state
+      - WebSocket message broadcast on phase transition (actions→development or actions→completed)
+      - Broadcasts include game_id and updated player states so clients can refresh
+        UI
+      AgentType: backend-engineer
+      Dependencies:
+      - task-empires-online-feat-actions-stability-2
+      Description: Integrate WebSocket broadcasts into perform_action, end-actions,
+        and phase transition flows in games.py. After each action and phase change,
+        broadcast the updated game state to all connected clients in the game room
+        using the existing WebSocket manager.
+      EstimatedEffort: S
+      Files:
+      - backend/app/api/routes/games.py
+      ID: task-empires-online-feat-actions-stability-3
+      Title: Broadcast WebSocket state updates after actions and phase transitions
+  - FeatureID: empires-online-feat-ui-polish
+    FeatureTitle: Mobile Responsive UI & Toast Notifications
+    Tasks:
+    - AcceptanceCriteria:
+      - Toast component renders success, error, and info variants with auto-dismiss
+        after timeout
+      - ToastProvider is wrapped in App.tsx and useToast hook is consumable from any
+        component
+      - Game action errors and confirmations display as toast notifications instead
+        of inline error divs
+      - Toast styles are defined in App.css and render correctly on mobile (≤768px)
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Create a Toast component and ToastProvider context for displaying
+        action confirmations, errors, and resource change notifications. Wire the
+        provider into App.tsx and replace existing inline error divs in Game.tsx with
+        toast calls.
+      EstimatedEffort: M
+      Files:
+      - frontend/src/components/Toast.tsx
+      - frontend/src/App.tsx
+      - frontend/src/App.css
+      - frontend/src/pages/Game.tsx
+      ID: task-empires-online-feat-ui-polish-1
+      Title: Implement toast notification system
+    - AcceptanceCriteria:
+      - All page layouts adapt to single-column at ≤768px with no horizontal overflow
+      - No horizontal scrollbar appears at 375px viewport width
+      - Navbar, game grid, action panel, and player status sections are fully usable
+        on mobile
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Enhance CSS media queries for full mobile-responsive layout at
+        ≤768px breakpoint. Ensure no horizontal scrolling at 375px viewport width
+        by auditing grid layouts, card widths, and navbar. Add responsive styles for
+        ActionPanel and player status sections.
+      EstimatedEffort: M
+      Files:
+      - frontend/src/App.css
+      - frontend/src/components/Navbar.tsx
+      ID: task-empires-online-feat-ui-polish-2
+      Title: Add mobile-responsive layout and no-scroll guarantee
+    - AcceptanceCriteria:
+      - Recruit people and acquire territory buttons appear in ActionPanel and trigger
+        corresponding game actions
+      - Round summary displays per-player resource, territory, and population deltas
+        after each round transition
+      - Action success and failure feedback is shown via toast notifications
+      - New UI elements are responsive and usable at ≤768px
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-empires-online-feat-ui-polish-1
+      Description: Add recruit people and acquire territory action buttons to the
+        ActionPanel section in Game.tsx. Implement a round summary display component
+        that shows per-player changes (resources, territory, population) between rounds.
+        Wire both to toast notifications for feedback.
+      EstimatedEffort: M
+      Files:
+      - frontend/src/pages/Game.tsx
+      - frontend/src/App.css
+      ID: task-empires-online-feat-ui-polish-3
+      Title: Add recruit/acquire buttons and round summary display
+  - FeatureID: empires-online-feat-backend-tests
+    FeatureTitle: Backend Integration Tests & Coverage
+    Tasks:
+    - AcceptanceCriteria:
+      - test_game_logic.py includes passing tests for recruit_people, acquire_territory,
+        run_stability_check, and auto phase transitions
+      - test_ws_endpoint.py includes passing tests for game state broadcasting and
+        client reconnection
+      - All new unit tests pass with pytest
+      AgentType: qa-engineer
+      Dependencies: []
+      Description: Extend test_game_logic.py with unit tests covering recruit_people,
+        acquire_territory, stability check, and auto phase transitions. Extend test_ws_endpoint.py
+        with tests for game state broadcasting and reconnection handling.
+      EstimatedEffort: M
+      Files:
+      - backend/app/tests/test_game_logic.py
+      - backend/app/tests/test_ws_endpoint.py
+      ID: task-empires-online-feat-backend-tests-1
+      Title: Unit tests for game logic and WebSocket endpoints
+    - AcceptanceCriteria:
+      - test_integration.py includes passing tests for round summary endpoint, end-actions
+        endpoint, and full game lifecycle
+      - pytest --cov reports ≥80% backend test coverage
+      - All integration tests pass against the test database
+      AgentType: qa-engineer
+      Dependencies:
+      - task-empires-online-feat-backend-tests-1
+      Description: Add integration tests in test_integration.py covering the round
+        summary endpoint, end-actions endpoint, and a full game lifecycle scenario.
+        Configure pytest-cov and verify backend test coverage meets the ≥80% target.
+      EstimatedEffort: M
+      Files:
+      - backend/app/tests/test_integration.py
+      ID: task-empires-online-feat-backend-tests-2
+      Title: Integration tests and coverage target
   Sprint: 2

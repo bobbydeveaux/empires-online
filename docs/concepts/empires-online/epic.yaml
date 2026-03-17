@@ -2,26 +2,29 @@ Epics:
 - Features:
   - Sprint: 1
     dependencies: null
-    description: Implement WebSocket connection manager with room-based broadcasting
-      per game, FastAPI WebSocket endpoint with JWT authentication, and PostgreSQL
-      NOTIFY/LISTEN for cross-process event fanout. Includes Nginx WebSocket proxy
-      configuration.
+    description: 'Extend existing WebSocket endpoint (JWT auth and room-based broadcasting
+      already implemented in PR #23) with PostgreSQL NOTIFY/LISTEN for cross-process
+      event fanout. Add Nginx WebSocket proxy configuration for /ws/ location. Integrate
+      game state broadcasting into REST action endpoints so state changes are pushed
+      to all connected clients after develop, perform-action, and next-round calls.'
     estimatedComplexity: high
     files:
     - backend/app/services/ws_manager.py
     - backend/app/api/routes/ws.py
+    - backend/app/api/routes/games.py
     - backend/app/main.py
     - frontend/nginx.conf
     id: empires-online-feat-websocket-backend
     name: WebSocket Backend Infrastructure
     project: backend
     type: enabler
-  - Sprint: 3
+  - Sprint: 1
     dependencies:
     - empires-online-feat-websocket-backend
-    description: Create useGameWebSocket hook replacing 5-second polling with real-time
-      push updates. Implement exponential backoff reconnection (1s, 2s, 4s, max 30s)
-      and automatic state sync on reconnect. Wire hook into Game and GameLobby pages.
+    description: Create useGameWebSocket hook replacing 5-second polling in Game.tsx
+      with real-time push updates. Implement exponential backoff reconnection (1s,
+      2s, 4s, max 30s) and automatic state sync on reconnect. Wire hook into Game
+      and GameLobby pages, removing setInterval-based loadGameState polling.
     estimatedComplexity: medium
     files:
     - frontend/src/hooks/useGameWebSocket.ts
@@ -36,10 +39,11 @@ Epics:
   ID: empires-online-epic-realtime
   Name: Real-Time Communication
 - Features:
-  - Sprint: 2
+  - Sprint: 1
     dependencies: null
-    description: Replace create_all() with Alembic migration framework. Create initial
-      migration adding stability_checked column to games table. Configure auto-run
+    description: Replace create_all() in init_db.py with Alembic migration framework.
+      Create initial migration adding stability_checked boolean column to games table.
+      Configure alembic.ini and env.py to use application database URL. Set up auto-run
       migrations on application startup.
     estimatedComplexity: low
     files:
@@ -52,14 +56,17 @@ Epics:
     name: Alembic Migration Setup
     project: backend
     type: enabler
-  - Sprint: 4
+  - Sprint: 2
     dependencies:
     - empires-online-feat-alembic-setup
+    - empires-online-feat-websocket-backend
     description: 'Implement recruit_people action (cost 2 gold, +1 person) and acquire_territory
-      action (cost 3 gold, +1 territory) with server-side validation. Add stability
-      check: if revolters > supporters at round end, deduct gold equal to the difference
-      (floor 0). Implement automatic phase transitions (development→actions→next round)
-      when all players complete. Add round summary endpoint returning per-player changes.'
+      action (cost 3 gold, +1 territory) in GameLogic with server-side validation
+      via can_perform_action(). Add stability check: if revolters > supporters at
+      round end, deduct gold equal to the difference (floor 0). Add end-actions endpoint
+      and automatic phase transitions (actions→next round when all actions_completed=True).
+      Add round summary endpoint returning per-player changes. Broadcast state updates
+      via WebSocket after each action.'
     estimatedComplexity: medium
     files:
     - backend/app/services/game_logic.py
@@ -72,14 +79,15 @@ Epics:
   ID: empires-online-epic-game-logic
   Name: Game Logic Completion
 - Features:
-  - Sprint: 5
+  - Sprint: 2
     dependencies:
     - empires-online-feat-websocket-frontend
     - empires-online-feat-actions-stability
     description: Add CSS media queries for mobile-responsive layout at ≤768px width
       with no horizontal scrolling at 375px. Implement toast notification system for
-      action confirmations, errors, and resource changes. Add round summary display
-      showing per-player changes between rounds.
+      action confirmations, errors, and resource changes. Add recruit people and acquire
+      territory buttons to ActionPanel component. Add round summary display showing
+      per-player changes between rounds.
     estimatedComplexity: medium
     files:
     - frontend/src/components/Toast.tsx
@@ -90,18 +98,19 @@ Epics:
     name: Mobile Responsive UI & Toast Notifications
     project: frontend
     type: feature
-  - Sprint: 6
+  - Sprint: 2
     dependencies:
     - empires-online-feat-websocket-backend
     - empires-online-feat-actions-stability
-    description: Add unit tests for recruit_people, acquire_territory, stability check,
-      and WebSocket broadcasting. Add integration tests for all API endpoints including
-      WebSocket connect/disconnect, round summary, and auto phase transitions. Target
+    description: Extend test_game_logic.py with unit tests for recruit_people, acquire_territory,
+      stability check, and auto phase transitions. Extend test_ws_endpoint.py with
+      tests for game state broadcasting and reconnection. Add integration tests for
+      round summary endpoint, end-actions endpoint, and full game lifecycle. Target
       ≥80% backend test coverage.
     estimatedComplexity: medium
     files:
     - backend/app/tests/test_game_logic.py
-    - backend/app/tests/test_websocket.py
+    - backend/app/tests/test_ws_endpoint.py
     - backend/app/tests/test_integration.py
     id: empires-online-feat-backend-tests
     name: Backend Integration Tests & Coverage
