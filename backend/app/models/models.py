@@ -52,6 +52,7 @@ class Game(Base):
     creator = relationship("Player", back_populates="created_games")
     spawned_countries = relationship("SpawnedCountry", back_populates="game")
     game_history = relationship("GameHistory", back_populates="game")
+    game_result = relationship("GameResult", back_populates="game", uselist=False)
 
 
 class SpawnedCountry(Base):
@@ -144,3 +145,20 @@ class Trade(Base):
     receiver_country = relationship(
         "SpawnedCountry", foreign_keys=[receiver_country_id]
     )
+
+
+class GameResult(Base):
+    __tablename__ = "game_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    game_id = Column(Integer, ForeignKey("games.id"), nullable=False, unique=True)
+    winner_country_id = Column(Integer, ForeignKey("spawned_countries.id"), nullable=False)
+    winner_player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    duration_rounds = Column(Integer, nullable=False)
+    finished_at = Column(DateTime(timezone=True), server_default=func.now())
+    final_rankings = Column(Text, nullable=False)  # JSON string
+
+    # Relationships
+    game = relationship("Game", back_populates="game_result")
+    winner_country = relationship("SpawnedCountry")
+    winner_player = relationship("Player")
