@@ -1,6 +1,6 @@
 from datetime import timedelta
-from typing import List
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from typing import List, Optional
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
@@ -36,6 +36,7 @@ from app.services.game_broadcast import (
     stability_check_message,
     round_summary_message,
 )
+from app.services.ws_manager import manager
 import json
 
 router = APIRouter()
@@ -345,14 +346,39 @@ def create_game(
     return db_game
 
 
-@router.get("/", response_model=List[GameSchema])
-def list_games(db: Session = Depends(get_db)):
-    """List all available games."""
-    return (
+@router.get("/")
+def list_games(
+    games_with_spectators: Optional[bool] = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    """List all available games.
+
+    Optional query param ``games_with_spectators=true`` filters to games
+    that currently have at least one spectator connected.
+    """
+    games = (
         db.query(Game)
         .filter(Game.phase.in_(["waiting", "development", "actions"]))
         .all()
     )
+
+    result = []
+    for game in games:
+        spectator_count = manager.get_spectator_count(game.id)
+        if games_with_spectators and spectator_count == 0:
+            continue
+        game_dict = {
+            "id": game.id,
+            "rounds": game.rounds,
+            "rounds_remaining": game.rounds_remaining,
+            "phase": game.phase,
+            "creator_id": game.creator_id,
+            "created_at": game.created_at.isoformat() if game.created_at else None,
+            "started_at": game.started_at.isoformat() if game.started_at else None,
+            "spectator_count": spectator_count,
+        }
+        result.append(game_dict)
+    return result
 
 
 @router.get("/{game_id}", response_model=GameState)
@@ -399,7 +425,12 @@ def get_game_state(
     # Sort leaderboard by score
     leaderboard.sort(key=lambda x: x["score"], reverse=True)
 
-    return GameState(game=game, players=players_data, leaderboard=leaderboard)
+    return GameState(
+        game=game,
+        players=players_data,
+        leaderboard=leaderboard,
+        spectator_count=manager.get_spectator_count(game_id),
+    )
 
 
 @router.post("/{game_id}/join")

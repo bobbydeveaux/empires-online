@@ -127,6 +127,10 @@ export interface TradeOffer {
   request_territory: number;
   status: TradeStatus;
   created_at: string;
+  proposer_name?: string;
+  receiver_name?: string;
+  proposer_country_name?: string;
+  receiver_country_name?: string;
 }
 
 export interface TradePropose {
@@ -201,6 +205,7 @@ export interface WsErrorMessage {
   message: string;
 }
 
+// Trade WebSocket messages
 export interface WsTradeProposedMessage {
   type: 'trade_proposed';
   game_id: number;
@@ -211,6 +216,7 @@ export interface WsTradeResolvedMessage {
   type: 'trade_resolved';
   game_id: number;
   trade: TradeOffer;
+  resolution: 'accepted' | 'rejected' | 'cancelled';
 }
 
 export type WsServerMessage =
