@@ -52,7 +52,35 @@ interface GameState {
 
 ## API
 
-The `gamesAPI.spectateGame(gameId)` method calls `POST /games/{gameId}/spectate` to obtain a spectator token. This endpoint requires backend support from the spectator-backend feature.
+### POST /games/{game_id}/spectate
+
+Returns a spectator JWT token for watching a game. **No authentication required.**
+
+- Allowed when game phase is `waiting`, `development`, or `actions`
+- Returns `400` when game phase is `completed`
+- Returns `404` when game does not exist
+
+**Response:**
+```json
+{
+  "access_token": "<jwt>",
+  "token_type": "bearer",
+  "is_spectator": true,
+  "game_id": 1
+}
+```
+
+The JWT contains claims: `sub` (spectator-game-{id}), `game_id`, and `is_spectator: true`.
+
+### GET /games/
+
+Returns all active games with `spectator_count` field. Supports `?games_with_spectators=true` query parameter to filter to games that have at least one connected spectator.
+
+### GET /games/{game_id}
+
+The `GameState` response includes a `spectator_count` field (integer, defaults to 0).
+
+The frontend `gamesAPI.spectateGame(gameId)` method calls the spectate endpoint to obtain the token.
 
 ## WebSocket Hook
 

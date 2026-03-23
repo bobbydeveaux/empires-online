@@ -194,7 +194,12 @@ async def spectator_websocket_endpoint(
     """
     auth_token = _extract_token(websocket, token)
 
-    username = _authenticate_token(auth_token)
+    payload = _authenticate_token(auth_token)
+    if not payload:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    username: Optional[str] = payload.get("sub")
     if not username:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return

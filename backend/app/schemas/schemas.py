@@ -144,7 +144,9 @@ class GameState(BaseModel):
 
 # Spectator schemas
 class SpectatorToken(BaseModel):
-    spectator_token: str
+    access_token: str
+    token_type: str = "bearer"
+    is_spectator: bool = True
     game_id: int
 
 
