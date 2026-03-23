@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { GameState, WsServerMessage, WsConnectionStatus } from '../types';
+import { GameState, Trade, WsServerMessage, WsConnectionStatus } from '../types';
 import { gamesAPI, getWebSocketUrl } from '../services/api';
 
 const INITIAL_RECONNECT_DELAY = 1000;
@@ -13,11 +13,15 @@ interface UseGameWebSocketOptions {
   token: string | null;
   /** Called when a WebSocket message is received. */
   onMessage?: (message: WsServerMessage) => void;
+  /** Called when a trade toast notification should be shown. */
+  onTradeNotification?: (message: string, variant: 'success' | 'error' | 'info') => void;
 }
 
 interface UseGameWebSocketReturn {
   /** Current game state (fetched via REST, kept in sync by WS events). */
   gameState: GameState | null;
+  /** Active (pending) trades for the current game. */
+  trades: Trade[];
   /** WebSocket connection status. */
   connectionStatus: WsConnectionStatus;
   /** Manually trigger a reconnect. */
@@ -30,8 +34,10 @@ export function useGameWebSocket({
   gameId,
   token,
   onMessage,
+  onTradeNotification,
 }: UseGameWebSocketOptions): UseGameWebSocketReturn {
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [trades, setTrades] = useState<Trade[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<WsConnectionStatus>('disconnected');
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -41,6 +47,8 @@ export function useGameWebSocket({
   const mountedRef = useRef(true);
   const onMessageRef = useRef(onMessage);
   onMessageRef.current = onMessage;
+  const onTradeNotificationRef = useRef(onTradeNotification);
+  onTradeNotificationRef.current = onTradeNotification;
 
   // Fetch full game state via REST
   const fetchGameState = useCallback(async () => {
@@ -141,6 +149,34 @@ export function useGameWebSocket({
             // Re-fetch full state from REST for consistency
             fetchGameState();
             break;
+          case 'trade_proposed':
+            setTrades(prev => [...prev, message.trade]);
+            onTradeNotificationRef.current?.(
+              `New trade proposal received (Trade #${message.trade.id})`,
+              'info',
+            );
+            break;
+          case 'trade_resolved':
+            setTrades(prev => prev.filter(t => t.id !== message.trade.id));
+            if (message.resolution === 'accepted') {
+              onTradeNotificationRef.current?.(
+                `Trade #${message.trade.id} was accepted`,
+                'success',
+              );
+              // Resource balances changed — re-fetch game state
+              fetchGameState();
+            } else if (message.resolution === 'rejected') {
+              onTradeNotificationRef.current?.(
+                `Trade #${message.trade.id} was rejected`,
+                'error',
+              );
+            } else {
+              onTradeNotificationRef.current?.(
+                `Trade #${message.trade.id} was cancelled`,
+                'info',
+              );
+            }
+            break;
           // pong, chat, error — no state refresh needed
         }
       } catch {
@@ -184,6 +220,7 @@ export function useGameWebSocket({
 
   return {
     gameState,
+    trades,
     connectionStatus,
     reconnect,
     refreshGameState: fetchGameState,

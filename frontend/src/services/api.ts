@@ -8,7 +8,9 @@ import {
   ActionResult,
   GameAction,
   LeaderboardEntry,
-  AuthToken
+  AuthToken,
+  Trade,
+  TradeProposal,
 } from '../types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
@@ -124,6 +126,34 @@ export const gamesAPI = {
     const response = await api.get(`/games/${gameId}/leaderboard`);
     return response.data;
   }
+};
+
+// Trades API
+export const tradesAPI = {
+  proposeTrade: async (gameId: number, proposal: TradeProposal): Promise<Trade> => {
+    const response = await api.post(`/games/${gameId}/trades`, proposal);
+    return response.data;
+  },
+
+  acceptTrade: async (gameId: number, tradeId: number): Promise<Trade> => {
+    const response = await api.post(`/games/${gameId}/trades/${tradeId}/accept`);
+    return response.data;
+  },
+
+  rejectTrade: async (gameId: number, tradeId: number): Promise<Trade> => {
+    const response = await api.post(`/games/${gameId}/trades/${tradeId}/reject`);
+    return response.data;
+  },
+
+  cancelTrade: async (gameId: number, tradeId: number): Promise<Trade> => {
+    const response = await api.post(`/games/${gameId}/trades/${tradeId}/cancel`);
+    return response.data;
+  },
+
+  listTrades: async (gameId: number): Promise<Trade[]> => {
+    const response = await api.get(`/games/${gameId}/trades`);
+    return response.data;
+  },
 };
 
 // WebSocket URL builder
