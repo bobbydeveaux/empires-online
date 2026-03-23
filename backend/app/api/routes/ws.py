@@ -25,16 +25,15 @@ def _get_db() -> Session:
     return SessionLocal()
 
 
-def _authenticate_token(token: Optional[str]) -> Optional[str]:
-    """Validate a JWT token and return the username, or None if invalid."""
+def _authenticate_token(token: Optional[str]) -> Optional[dict]:
+    """Validate a JWT token and return the decoded payload, or None if invalid."""
     if not token:
         return None
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
-        username: Optional[str] = payload.get("sub")
-        return username
+        return payload
     except JWTError:
         return None
 
@@ -72,7 +71,45 @@ async def websocket_endpoint(
     auth_token = _extract_token(websocket, token)
 
     # Validate the token
-    username = _authenticate_token(auth_token)
+    payload = _authenticate_token(auth_token)
+    if not payload:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    username: Optional[str] = payload.get("sub")
+    is_spectator: bool = payload.get("is_spectator", False)
+
+    if is_spectator:
+        # Spectator connection — no player lookup required
+        await manager.connect_spectator(websocket, game_id)
+        await manager.send_personal(
+            websocket,
+            {"type": "spectator_joined", "game_id": game_id},
+        )
+        try:
+            while True:
+                data = await websocket.receive_json()
+                msg_type = data.get("type", "")
+                if msg_type == "ping":
+                    await manager.send_personal(websocket, {"type": "pong"})
+                else:
+                    # Spectators cannot send game actions
+                    await manager.send_personal(
+                        websocket,
+                        {
+                            "type": "error",
+                            "code": 403,
+                            "message": "Spectators cannot send actions",
+                        },
+                    )
+        except WebSocketDisconnect:
+            manager.disconnect_spectator(websocket)
+        except Exception:
+            logger.exception("WebSocket error for spectator in game %d", game_id)
+            manager.disconnect_spectator(websocket)
+        return
+
+    # Player connection
     if not username:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
@@ -157,21 +194,19 @@ async def spectator_websocket_endpoint(
     """
     auth_token = _extract_token(websocket, token)
 
-    username = _authenticate_token(auth_token)
-    if not username:
+    payload = _authenticate_token(auth_token)
+    if not payload:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    # Look up the player in the database (spectators still need a valid account)
-    db = _get_db()
-    try:
-        player = _get_player(db, username)
-        if not player:
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            return
-        player_username = player.username
-    finally:
-        db.close()
+    # Spectator tokens use a synthetic sub like "spectator-game-{id}" and
+    # carry an is_spectator claim.  No player DB lookup is required.
+    is_spectator: bool = payload.get("is_spectator", False)
+    username: Optional[str] = payload.get("sub")
+
+    if not is_spectator or not username:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
 
     # Accept and register as a spectator
     await manager.connect_spectator(websocket, game_id)
@@ -213,7 +248,7 @@ async def spectator_websocket_endpoint(
                     },
                 )
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        manager.disconnect_spectator(websocket)
         await manager.broadcast_to_room(
             game_id,
             {
@@ -223,5 +258,5 @@ async def spectator_websocket_endpoint(
             },
         )
     except Exception:
-        logger.exception("Spectator WebSocket error for %s in game %d", player_username, game_id)
-        manager.disconnect(websocket)
+        logger.exception("Spectator WebSocket error for %s in game %d", username, game_id)
+        manager.disconnect_spectator(websocket)

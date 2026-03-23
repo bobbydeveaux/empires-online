@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { GameState, Trade, WsServerMessage, WsConnectionStatus } from '../types';
+import { GameState, WsClientMessage, WsServerMessage, WsConnectionStatus, TradeOffer } from '../types';
 import { gamesAPI, getWebSocketUrl } from '../services/api';
 
 const INITIAL_RECONNECT_DELAY = 1000;
@@ -15,19 +15,27 @@ interface UseGameWebSocketOptions {
   onMessage?: (message: WsServerMessage) => void;
   /** Called when a trade toast notification should be shown. */
   onTradeNotification?: (message: string, variant: 'success' | 'error' | 'info') => void;
+  /** When true, connects in read-only mode using the spectator token. Outbound action messages are rejected. */
+  isSpectator?: boolean;
 }
 
 interface UseGameWebSocketReturn {
   /** Current game state (fetched via REST, kept in sync by WS events). */
   gameState: GameState | null;
   /** Active (pending) trades for the current game. */
-  trades: Trade[];
+  trades: TradeOffer[];
   /** WebSocket connection status. */
   connectionStatus: WsConnectionStatus;
   /** Manually trigger a reconnect. */
   reconnect: () => void;
   /** Manually refresh game state via REST. */
   refreshGameState: () => Promise<void>;
+  /** Send a message over the WebSocket. Returns false if in spectator mode. */
+  sendMessage: (message: WsClientMessage) => boolean;
+  /** Whether this connection is in spectator (read-only) mode. */
+  isSpectator: boolean;
+  /** Refresh trades from REST. */
+  refreshTrades: () => Promise<void>;
 }
 
 export function useGameWebSocket({
@@ -35,9 +43,10 @@ export function useGameWebSocket({
   token,
   onMessage,
   onTradeNotification,
+  isSpectator = false,
 }: UseGameWebSocketOptions): UseGameWebSocketReturn {
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [trades, setTrades] = useState<Trade[]>([]);
+  const [trades, setTrades] = useState<TradeOffer[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<WsConnectionStatus>('disconnected');
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -60,6 +69,19 @@ export function useGameWebSocket({
       }
     } catch {
       // Silently fail — state will be retried on next event or reconnect
+    }
+  }, [gameId]);
+
+  // Fetch active trades via REST
+  const fetchTrades = useCallback(async () => {
+    if (!gameId) return;
+    try {
+      const tradeList = await gamesAPI.listTrades(gameId);
+      if (mountedRef.current) {
+        setTrades(tradeList);
+      }
+    } catch {
+      // Silently fail — trades endpoint may not be available yet
     }
   }, [gameId]);
 
@@ -117,6 +139,7 @@ export function useGameWebSocket({
 
       // Fetch full state on connect/reconnect to ensure sync
       fetchGameState();
+      fetchTrades();
 
       // Start ping keepalive
       pingTimerRef.current = setInterval(() => {
@@ -198,7 +221,19 @@ export function useGameWebSocket({
     ws.onerror = () => {
       // onclose will fire after onerror, so reconnect is handled there
     };
-  }, [gameId, token, closeConnection, fetchGameState, clearTimers, scheduleReconnect]);
+  }, [gameId, token, closeConnection, fetchGameState, fetchTrades, clearTimers, scheduleReconnect]);
+
+  // Send a message over the WebSocket (rejected in spectator mode)
+  const sendMessage = useCallback((message: WsClientMessage): boolean => {
+    if (isSpectator) {
+      return false;
+    }
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(message));
+      return true;
+    }
+    return false;
+  }, [isSpectator]);
 
   // Manual reconnect
   const reconnect = useCallback(() => {
@@ -224,5 +259,8 @@ export function useGameWebSocket({
     connectionStatus,
     reconnect,
     refreshGameState: fetchGameState,
+    sendMessage,
+    isSpectator,
+    refreshTrades: fetchTrades,
   };
 }

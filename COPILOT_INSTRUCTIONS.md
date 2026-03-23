@@ -92,7 +92,7 @@ game_history (id, game_id, round_number, spawned_country_id, action_type, detail
 - [ ] Add game history and statistics
 - [ ] Create comprehensive API documentation
 - [ ] Add input validation and error handling
-- [ ] Implement game spectator mode
+- [x] Implement game spectator mode (SpectatorView page)
 
 ### Phase 3: Polish
 - [ ] Add AI opponents for single-player practice

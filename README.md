@@ -141,6 +141,14 @@ Instability Penalty = If revolters > supporters, multiply total by 0.5
 - `POST /api/games/{id}/next-round` - Manually advance round (creator only)
 - `GET /api/games/{id}/round-summary` - Get per-player round summary
 - `GET /api/games/{id}/leaderboard` - Get current standings
+- `POST /api/games/{id}/spectate` - Get spectator token for watching an in-progress game
+
+### Trading
+- `POST /api/games/{id}/trades` - Propose a trade (offer/request resources)
+- `POST /api/games/{id}/trades/{trade_id}/accept` - Accept a pending trade (receiver only)
+- `POST /api/games/{id}/trades/{trade_id}/reject` - Reject a pending trade (receiver only)
+- `POST /api/games/{id}/trades/{trade_id}/cancel` - Cancel a trade
+- `GET /api/games/{id}/trades` - List pending trades for a game
 
 ### Trades
 - `POST /api/games/{id}/trades` - Propose a trade
@@ -150,8 +158,12 @@ Instability Penalty = If revolters > supporters, multiply total by 0.5
 - `GET /api/games/{id}/trades` - List pending trades
 
 ### Players
-- `GET /api/players/countries` - List available countries
 - `GET /api/players/me` - Get current player info
+- `GET /api/players/` - List all players
+- `GET /api/players/countries` - List available countries
+- `GET /api/players/{player_id}/history` - Get player's completed game history with placement
+- `GET /api/players/{player_id}/stats` - Get player's aggregated stats (total games, wins, win rate)
+- `GET /api/players/leaderboard` - Global all-time leaderboard (wins, win rate)
 
 ### WebSocket
 - `WS /ws/{game_id}?token=<jwt>` - Real-time game updates (JWT required via query param or Authorization header)
@@ -210,10 +222,14 @@ docker-compose down
 - [x] Stability check at round end (revolters > supporters → gold loss)
 - [x] Round summary endpoint with per-player action history
 - [x] New actions: recruit_people (2 gold), acquire_territory (3 gold)
-- [ ] Implement trading between players
+- [x] Implement trading between players (propose/accept/reject with atomic resource transfer)
+- [x] Trading UI: TradePanel (incoming/outgoing offers) and ProposeTrade modal with resource sliders
 - [x] Auto-record game results on completion (GameResult with winner, rankings, duration)
+- [x] Player stats page with game history and global leaderboard
 - [ ] Create comprehensive API documentation
-- [ ] Implement game spectator mode
+- [x] Implement game spectator mode (backend: spectator WebSocket connections, POST /spectate endpoint, spectator_count in game listings; frontend: spectate button in lobby, read-only spectator view with live updates)
+- [x] Player stats page with game history and performance metrics
+- [x] Global leaderboard across all completed games
 
 ### Phase 3 - Polish (📋 Future)
 - [ ] Add AI opponents for single-player practice
@@ -266,3 +282,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - See [DESIGN.md](DESIGN.md) for complete game rules, API specifications, and implementation details
 - See [COPILOT_INSTRUCTIONS.md](COPILOT_INSTRUCTIONS.md) for development guidelines and architecture decisions
 - See [docs/websocket-api.md](docs/websocket-api.md) for WebSocket API and frontend hook documentation
+- See [docs/player-stats.md](docs/player-stats.md) for player stats and global leaderboard documentation
