@@ -101,6 +101,15 @@ Returns all pending (unresolved) trades for the given game.
 }
 ```
 
+## GameState `trade_allowed` Flag
+
+The `GameState` schema (returned by `GET /api/games/{game_id}` and included in `game_state_update` WebSocket broadcasts) contains a `trade_allowed` boolean field:
+
+- **`true`** — the game is in the `actions` phase and players may propose, accept, or reject trades
+- **`false`** — the game is in any other phase (`waiting`, `development`, `completed`) and trading is disabled
+
+Frontend clients should use this flag to show or hide the trading UI.
+
 ## TypeScript Types
 
 Defined in `frontend/src/types/index.ts`:

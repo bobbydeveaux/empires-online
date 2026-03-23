@@ -9,6 +9,9 @@ import {
   GameAction,
   LeaderboardEntry,
   AuthToken,
+  SpectateTokenResponse,
+  PlayerStatsData,
+  GlobalLeaderboardEntry,
   TradeOffer,
   TradePropose,
 } from '../types';
@@ -76,6 +79,16 @@ export const playersAPI = {
 
   getCurrentPlayer: async (): Promise<Player> => {
     const response = await api.get('/players/me');
+    return response.data;
+  },
+
+  getPlayerStats: async (playerId: number): Promise<PlayerStatsData> => {
+    const response = await api.get(`/players/${playerId}/stats`);
+    return response.data;
+  },
+
+  getGlobalLeaderboard: async (): Promise<GlobalLeaderboardEntry[]> => {
+    const response = await api.get('/players/leaderboard');
     return response.data;
   }
 };
@@ -153,10 +166,10 @@ export const gamesAPI = {
     return response.data;
   },
 
-  spectateGame: async (gameId: number): Promise<{ spectator_token: string; game_id: number }> => {
+  spectateGame: async (gameId: number): Promise<SpectateTokenResponse> => {
     const response = await api.post(`/games/${gameId}/spectate`);
     return response.data;
-  }
+  },
 };
 
 // Trades API

@@ -23,6 +23,9 @@ const Navbar: React.FC = () => {
             <Link to="/lobby" className="navbar-link">
               Game Lobby
             </Link>
+            <Link to="/stats" className="navbar-link">
+              Stats
+            </Link>
             <span>Welcome, {user.username}!</span>
             <button onClick={handleLogout} className="navbar-logout">
               Logout
