@@ -1,0 +1,17 @@
+{
+  "prTitle": "feat: add spectator types, API service, and routing",
+  "prBody": "## Summary\n\nAdds frontend spectator mode support including TypeScript types, API service method, WebSocket hook updates, and routing.\n\n### Changes\n\n- **Types** (`frontend/src/types/index.ts`): Added `spectator_count` optional field to `GameState` and new `SpectateTokenResponse` interface\n- **API** (`frontend/src/services/api.ts`): Added `gamesAPI.spectateGame(gameId)` method calling `POST /games/{gameId}/spectate`\n- **WebSocket Hook** (`frontend/src/hooks/useGameWebSocket.ts`): Added `isSpectator` option that prevents sending outbound action messages, plus `sendMessage()` and `isSpectator` in the return value\n- **Routing** (`frontend/src/App.tsx`): Registered `/spectate/:gameId` as a protected route\n- **Spectate Page** (`frontend/src/pages/SpectateGame.tsx`): Read-only game view that fetches a spectator token, connects via WebSocket, and displays game state without action controls\n\n### Tests\n\n- Added 5 new tests for `useGameWebSocket` covering `isSpectator` flag and `sendMessage` behavior\n- Added 1 new test for `gamesAPI.spectateGame` verifying POST call and response\n- All 32 frontend tests pass\n\n### Review Feedback\n\nThe previous review flagged `broadcast_event()` as silently failing — this was already fixed (function is `async def` and properly `await`s). The `Optional` import flagged as unused is actually used in `game_state_update_message`. No backend changes needed.\n\nCloses #83",
+  "testsPass": true,
+  "filesChanged": [
+    "frontend/src/types/index.ts",
+    "frontend/src/services/api.ts",
+    "frontend/src/hooks/useGameWebSocket.ts",
+    "frontend/src/App.tsx",
+    "frontend/src/pages/SpectateGame.tsx",
+    "frontend/src/services/api.test.ts",
+    "frontend/src/hooks/useGameWebSocket.test.ts",
+    "docs/websocket-api.md"
+  ],
+  "docsUpdated": ["docs/websocket-api.md"],
+  "docsReviewed": ["README.md", "docs/database-migrations.md", "docs/toast-notifications.md"]
+}
