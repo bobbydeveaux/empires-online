@@ -1,0 +1,31 @@
+{
+  "prTitle": "feat: add trading system with full API, service, and 42 unit/integration tests",
+  "prBody": "## Summary\n\nImplements the complete trading system for Empires Online, including the Trade model, service layer, REST endpoints, WebSocket broadcast messages, and comprehensive test coverage.\n\n### Changes\n\n- **Trade model** (`models.py`): New `Trade` table with offer/request resources, status tracking, and a DB constraint preventing self-trades\n- **Alembic migration** (`002_add_trades.py`): Migration to create the trades table\n- **Trade schemas** (`schemas.py`): `TradePropose`, `TradeResponse`, `TradeList` Pydantic schemas; added `trade_allowed` flag to `GameState`\n- **TradeService** (`trade_service.py`): Business logic for propose/accept/reject with validation (resource availability, self-trade prevention, phase checks, atomic resource transfer)\n- **Trade routes** (`trades.py`): 4 REST endpoints — propose, accept, reject, list pending trades\n- **Broadcast messages** (`game_broadcast.py`): `trade_proposed`, `trade_accepted`, `trade_rejected` WebSocket message builders\n- **Router registration** (`main.py`): Trades router mounted under `/api/games` prefix\n- **Test infrastructure fix** (`conftest.py`): Added `StaticPool` and `check_same_thread=False` to fix SQLite threading issues in integration tests\n\n### Test Coverage (42 tests)\n\n**Unit tests** (`test_trade_service.py` — 24 tests):\n- Propose: happy path, self-trade rejection, wrong phase, insufficient gold/people/territory, game not found, receiver not in game, empty trade, negative amounts\n- Accept: happy path with atomic resource transfer verification, not-receiver forbidden, already accepted/rejected, not found, proposer lost resources, receiver insufficient resources, wrong phase\n- Reject: happy path, not-receiver forbidden, already accepted, not found\n- List: returns only pending trades, empty result\n\n**Integration tests** (`test_trade_endpoints.py` — 18 tests):\n- Propose endpoint: success, broadcasts event, insufficient resources, receiver not in game, wrong phase, unauthenticated\n- Accept endpoint: success with resource balance verification, broadcasts event, not-receiver forbidden, not found\n- Reject endpoint: success, broadcasts event, not-receiver forbidden, already accepted\n- List endpoint: returns pending, excludes resolved, empty game, unauthenticated\n\nCloses #69",
+  "testsPass": true,
+  "filesChanged": [
+    "backend/app/models/models.py",
+    "backend/alembic/versions/002_add_trades.py",
+    "backend/app/schemas/schemas.py",
+    "backend/app/services/trade_service.py",
+    "backend/app/services/game_broadcast.py",
+    "backend/app/api/routes/trades.py",
+    "backend/app/main.py",
+    "backend/app/tests/conftest.py",
+    "backend/app/tests/test_trade_service.py",
+    "backend/app/tests/test_trade_endpoints.py",
+    "README.md",
+    "docs/trading-api.md",
+    "docs/websocket-api.md"
+  ],
+  "docsUpdated": [
+    "README.md",
+    "docs/trading-api.md",
+    "docs/websocket-api.md"
+  ],
+  "docsReviewed": [
+    "docs/concepts/empires-online/LLD.md",
+    "docs/concepts/empires-online/PRD.md",
+    "docs/concepts/empires-online/tasks.yaml"
+  ],
+  "completedTasks": [1, 2, 3, 4, 5]
+}

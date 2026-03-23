@@ -142,6 +142,12 @@ Instability Penalty = If revolters > supporters, multiply total by 0.5
 - `GET /api/games/{id}/round-summary` - Get per-player round summary
 - `GET /api/games/{id}/leaderboard` - Get current standings
 
+### Trading
+- `POST /api/games/{id}/trades` - Propose a trade (offer/request resources)
+- `POST /api/games/{id}/trades/{trade_id}/accept` - Accept a pending trade (receiver only)
+- `POST /api/games/{id}/trades/{trade_id}/reject` - Reject a pending trade (receiver only)
+- `GET /api/games/{id}/trades` - List pending trades for a game
+
 ### Players
 - `GET /api/players/countries` - List available countries
 - `GET /api/players/me` - Get current player info
@@ -203,7 +209,7 @@ docker-compose down
 - [x] Stability check at round end (revolters > supporters → gold loss)
 - [x] Round summary endpoint with per-player action history
 - [x] New actions: recruit_people (2 gold), acquire_territory (3 gold)
-- [ ] Implement trading between players
+- [x] Implement trading between players (propose/accept/reject with atomic resource transfer)
 - [ ] Add game history and statistics
 - [ ] Create comprehensive API documentation
 - [ ] Implement game spectator mode

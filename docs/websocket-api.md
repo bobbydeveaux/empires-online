@@ -63,6 +63,14 @@ These messages are broadcast from REST endpoints when game state changes occur, 
 | `game_completed` | `{"game_id", "leaderboard": [...]}` | The game ended; includes the final leaderboard |
 | `game_state_update` | `{"game_id", "game_state?": GameState}` | Full game state push after actions and phase transitions |
 
+#### Trade Events
+
+| Type | Payload | Description |
+|------|---------|-------------|
+| `trade_proposed` | `{"game_id", "trade_id", "proposer_country_id", "receiver_country_id"}` | A new trade was proposed |
+| `trade_accepted` | `{"game_id", "trade_id", "proposer_country_id", "receiver_country_id"}` | A trade was accepted; resources have been transferred |
+| `trade_rejected` | `{"game_id", "trade_id", "proposer_country_id", "receiver_country_id"}` | A trade was rejected |
+
 #### Reserved / Future Server → Client
 
 | Type | Payload | Description |
