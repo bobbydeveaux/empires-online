@@ -57,6 +57,11 @@ export interface GameState {
   spectator_count?: number;
 }
 
+export interface SpectateTokenResponse {
+  spectator_token: string;
+  game_id: number;
+}
+
 export interface LeaderboardEntry {
   player_id: number;
   player_name: string;
@@ -232,3 +237,32 @@ export type WsServerMessage =
 
 // WebSocket connection status
 export type WsConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
+
+// Stats types
+export interface GameHistoryEntry {
+  game_id: number;
+  country_name: string;
+  rounds: number;
+  placement: number | null;
+  won: boolean;
+  finished_at: string | null;
+}
+
+export interface PlayerStatsData {
+  player_id: number;
+  username: string;
+  games_played: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  history: GameHistoryEntry[];
+}
+
+export interface GlobalLeaderboardEntry {
+  player_id: number;
+  username: string;
+  games_played: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+}

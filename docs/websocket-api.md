@@ -148,10 +148,11 @@ The `useGameWebSocket` hook (`frontend/src/hooks/useGameWebSocket.ts`) provides 
 ```typescript
 import { useGameWebSocket } from '../hooks/useGameWebSocket';
 
-const { gameState, connectionStatus, reconnect, refreshGameState, trades, refreshTrades } = useGameWebSocket({
+const { gameState, connectionStatus, reconnect, refreshGameState, sendMessage, isSpectator, trades, refreshTrades } = useGameWebSocket({
   gameId: 1,
   token: 'jwt-token',
   onMessage: (msg) => console.log(msg),
+  isSpectator: false, // optional, defaults to false
 });
 ```
 
@@ -160,6 +161,8 @@ const { gameState, connectionStatus, reconnect, refreshGameState, trades, refres
 - `connectionStatus` — `'connecting' | 'connected' | 'disconnected' | 'reconnecting'`
 - `reconnect()` — Manually trigger a reconnect
 - `refreshGameState()` — Manually fetch fresh state via REST
+- `sendMessage(msg)` — Send a `WsClientMessage` over the WebSocket. Returns `false` if in spectator mode or not connected.
+- `isSpectator` — Whether this connection is in spectator (read-only) mode
 - `trades` — Array of active `TradeOffer` objects for the current game
 - `refreshTrades()` — Manually refresh trades from REST
 
@@ -174,6 +177,23 @@ const { gameState, connectionStatus, reconnect, refreshGameState, trades, refres
 - Does not reconnect on auth failure (close code 1008)
 - Sends ping keepalive every 25 seconds
 - Cleans up on unmount
+- **Spectator mode**: When `isSpectator` is `true`, `sendMessage()` always returns `false` and no outbound messages are sent
+
+### Spectator Mode
+
+Spectators can watch a game in real-time without participating:
+
+1. Call `POST /games/{gameId}/spectate` to get a spectator token
+2. Connect to the WebSocket using the spectator token
+3. The `useGameWebSocket` hook with `isSpectator: true` prevents sending action messages
+
+**Route:** `/spectate/:gameId` — Protected route that renders a read-only game view.
+
+**API:** `gamesAPI.spectateGame(gameId)` — Returns `{ spectator_token, game_id }`.
+
+**Types:**
+- `GameState.spectator_count` — Optional field indicating how many spectators are watching
+- `SpectateTokenResponse` — Response type from the spectate endpoint
 
 ### WebSocket URL Utilities
 
