@@ -127,6 +127,12 @@ class GameState(BaseModel):
     leaderboard: List[Dict[str, Any]]
 
 
+# Spectator schemas
+class SpectatorToken(BaseModel):
+    spectator_token: str
+    game_id: int
+
+
 # Authentication schemas
 class Token(BaseModel):
     access_token: str
