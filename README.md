@@ -153,6 +153,8 @@ Instability Penalty = If revolters > supporters, multiply total by 0.5
 ### Players
 - `GET /api/players/countries` - List available countries
 - `GET /api/players/me` - Get current player info
+- `GET /api/players/leaderboard` - Global leaderboard (players ranked by wins)
+- `GET /api/players/{id}/stats` - Player stats with game history
 
 ### WebSocket
 - `WS /ws/{game_id}?token=<jwt>` - Real-time game updates (JWT required via query param or Authorization header)
@@ -213,7 +215,7 @@ docker-compose down
 - [x] New actions: recruit_people (2 gold), acquire_territory (3 gold)
 - [x] Implement trading between players (propose/accept/reject with atomic resource transfer)
 - [x] Auto-record game results on completion (GameResult with winner, rankings, duration)
-- [ ] Add game history and statistics
+- [x] Player stats page with game history and global leaderboard
 - [ ] Create comprehensive API documentation
 - [x] Implement game spectator mode (backend: spectator WebSocket connections, POST /spectate endpoint, spectator_count in game listings; frontend: spectate button in lobby, read-only spectator view with live updates)
 

@@ -392,6 +392,102 @@ code {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Stats tabs */
+.stats-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #ddd;
+}
+
+.stats-tab {
+  padding: 10px 24px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+  color: #666;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.stats-tab:hover {
+  color: #1976d2;
+}
+
+.stats-tab-active {
+  color: #1976d2;
+  border-bottom-color: #1976d2;
+}
+
+/* Stats grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.stat-card {
+  text-align: center;
+  padding: 16px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1976d2;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #666;
+  margin-top: 4px;
+}
+
+/* Stats table */
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.stats-table th {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 2px solid #ddd;
+  font-weight: 600;
+  color: #333;
+}
+
+.stats-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.stats-table-row-clickable {
+  cursor: pointer;
+}
+
+.stats-table-row-clickable:hover {
+  background-color: #f5f5f5;
+}
+
+.result-win {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.result-loss {
+  color: #d32f2f;
+  font-weight: 600;
+}
+
 
 /* Trade panel */
 .trade-card {
@@ -454,6 +550,10 @@ code {
   .grid-2,
   .grid-3 {
     grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .main-content {

@@ -9,6 +9,8 @@ import {
   GameAction,
   LeaderboardEntry,
   AuthToken,
+  PlayerStatsData,
+  GlobalLeaderboardEntry,
   TradeOffer,
   TradePropose,
 } from '../types';
@@ -76,6 +78,16 @@ export const playersAPI = {
 
   getCurrentPlayer: async (): Promise<Player> => {
     const response = await api.get('/players/me');
+    return response.data;
+  },
+
+  getPlayerStats: async (playerId: number): Promise<PlayerStatsData> => {
+    const response = await api.get(`/players/${playerId}/stats`);
+    return response.data;
+  },
+
+  getGlobalLeaderboard: async (): Promise<GlobalLeaderboardEntry[]> => {
+    const response = await api.get('/players/leaderboard');
     return response.data;
   }
 };
