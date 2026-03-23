@@ -169,7 +169,7 @@ export const gamesAPI = {
   spectateGame: async (gameId: number): Promise<SpectateTokenResponse> => {
     const response = await api.post(`/games/${gameId}/spectate`);
     return response.data;
-  }
+  },
 };
 
 // Trades API

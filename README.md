@@ -216,6 +216,7 @@ docker-compose down
 - [x] Round summary endpoint with per-player action history
 - [x] New actions: recruit_people (2 gold), acquire_territory (3 gold)
 - [x] Implement trading between players (propose/accept/reject with atomic resource transfer)
+- [x] Trading UI: TradePanel (incoming/outgoing offers) and ProposeTrade modal with resource sliders
 - [x] Auto-record game results on completion (GameResult with winner, rankings, duration)
 - [x] Player stats page with game history and global leaderboard
 - [ ] Create comprehensive API documentation
