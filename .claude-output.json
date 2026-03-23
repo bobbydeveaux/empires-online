@@ -1,0 +1,25 @@
+{
+  "prTitle": "test: add spectator mode backend with comprehensive tests",
+  "prBody": "## Summary\n\nImplement spectator mode backend and add comprehensive test coverage:\n\n- **ws_manager.py**: Extended ConnectionManager with spectator tracking (separate `_spectators` set per room), `connect_spectator`/`disconnect_spectator`/`is_spectator`/`get_spectator_count` methods, and broadcast delivery to both players and spectators\n- **games.py**: Added `POST /games/{game_id}/spectate` endpoint returning spectator JWT token, updated `GET /games/` with `spectator_count` field and `games_with_spectators=true` filter, added `spectator_count` to GameState response\n- **ws.py**: Updated WebSocket endpoint to handle spectator tokens — spectators receive game broadcasts but any non-ping message is rejected with 403 error\n- **schemas.py**: Added `spectator_count` to `GameState` schema and new `SpectatorToken` response schema\n- **test_ws_manager.py**: 14 new unit tests covering spectator add/remove, broadcast to spectators, action rejection, spectator count tracking, cleanup, and rooms introspection\n- **test_spectator.py**: 17 new integration tests covering POST /spectate endpoint (token generation, validation, claims, auth), GET /games with spectator filter, GameState spectator_count, and end-to-end WebSocket spectator flow (connect, ping/pong, action rejection)\n- **conftest.py**: Fixed SQLite threading issue with `StaticPool` for cross-thread test support\n- **docs**: Updated websocket-api.md with spectator connection flow and README with spectator mode status\n\n### Review Feedback Addressed\n- The `broadcast_event` function was already corrected to async in the current codebase\n- `Optional` import in game_broadcast.py is used (line 98) — not actually unused\n\nCloses #82",
+  "testsPass": true,
+  "filesChanged": [
+    "backend/app/services/ws_manager.py",
+    "backend/app/schemas/schemas.py",
+    "backend/app/api/routes/games.py",
+    "backend/app/api/routes/ws.py",
+    "backend/app/tests/test_ws_manager.py",
+    "backend/app/tests/test_spectator.py",
+    "backend/app/tests/conftest.py",
+    "docs/websocket-api.md",
+    "README.md"
+  ],
+  "docsUpdated": [
+    "docs/websocket-api.md",
+    "README.md"
+  ],
+  "docsReviewed": [
+    "docs/database-migrations.md",
+    "DESIGN.md"
+  ],
+  "completedTasks": [1, 2, 3]
+}
