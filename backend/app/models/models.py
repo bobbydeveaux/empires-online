@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Float, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -17,6 +17,7 @@ class Player(Base):
     # Relationships
     spawned_countries = relationship("SpawnedCountry", back_populates="player")
     created_games = relationship("Game", back_populates="creator")
+    game_results_won = relationship("GameResult", back_populates="winner_player")
 
 
 class Country(Base):
@@ -52,6 +53,7 @@ class Game(Base):
     creator = relationship("Player", back_populates="created_games")
     spawned_countries = relationship("SpawnedCountry", back_populates="game")
     game_history = relationship("GameHistory", back_populates="game")
+    game_result = relationship("GameResult", back_populates="game", uselist=False)
 
 
 class SpawnedCountry(Base):
@@ -101,3 +103,20 @@ class GameHistory(Base):
     # Relationships
     game = relationship("Game", back_populates="game_history")
     spawned_country = relationship("SpawnedCountry", back_populates="history")
+
+
+class GameResult(Base):
+    __tablename__ = "game_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    game_id = Column(Integer, ForeignKey("games.id"), nullable=False, unique=True)
+    winner_player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    winner_country_id = Column(Integer, ForeignKey("countries.id"), nullable=False)
+    duration_rounds = Column(Integer, nullable=False)
+    finished_at = Column(DateTime(timezone=True), server_default=func.now())
+    final_rankings = Column(Text, nullable=True)  # JSON string with ranked results
+
+    # Relationships
+    game = relationship("Game", back_populates="game_result")
+    winner_player = relationship("Player", back_populates="game_results_won")
+    winner_country = relationship("Country")

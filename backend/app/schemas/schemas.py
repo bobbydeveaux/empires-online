@@ -127,6 +127,40 @@ class GameState(BaseModel):
     leaderboard: List[Dict[str, Any]]
 
 
+# Player stats schemas
+class PlayerStats(BaseModel):
+    id: int
+    username: str
+    email: str
+    total_games: int = 0
+    wins: int = 0
+    losses: int = 0
+    win_rate: float = 0.0
+
+    class Config:
+        from_attributes = True
+
+
+class PlayerGameHistory(BaseModel):
+    game_id: int
+    rounds: int
+    finished_at: Optional[datetime] = None
+    rank: int
+    score: float
+    country_name: str
+    won: bool
+
+
+class GlobalLeaderboardEntry(BaseModel):
+    player_id: int
+    username: str
+    total_games: int
+    wins: int
+    losses: int
+    win_rate: float
+    avg_placement: float
+
+
 # Authentication schemas
 class Token(BaseModel):
     access_token: str
