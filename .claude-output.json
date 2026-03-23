@@ -1,0 +1,16 @@
+{
+  "prTitle": "feat: extend useGameWebSocket for trade events with types and API functions",
+  "prBody": "## Summary\n\n- Add `Trade`, `TradeProposal`, `TradeStatus` types and `WsTradeProposedMessage`, `WsTradeResolvedMessage` WebSocket message types to `types/index.ts`\n- Add `tradesAPI` service with `proposeTrade`, `acceptTrade`, `rejectTrade`, `cancelTrade`, `listTrades` functions to `api.ts`\n- Extend `useGameWebSocket` hook to handle `trade_proposed` and `trade_resolved` WebSocket events:\n  - Maintains local `trades` state array (pending trades)\n  - Fires toast notifications via `onTradeNotification` callback\n  - Refetches game state on accepted trades (resource balances changed)\n- Fix unused `Optional` import in `game_broadcast.py` (review feedback)\n- Add 6 new tests covering all trade event scenarios (32 total tests pass)\n- Update `docs/websocket-api.md` with trade event documentation\n- Update `README.md` with trade REST API endpoints\n\n### Review feedback addressed\n\n- **Unused Optional import**: Removed from `game_broadcast.py`\n- **broadcast_event sync issue**: Already resolved in existing code — `broadcast_event` is `async def`\n\nCloses #71",
+  "testsPass": true,
+  "filesChanged": [
+    "frontend/src/types/index.ts",
+    "frontend/src/services/api.ts",
+    "frontend/src/hooks/useGameWebSocket.ts",
+    "frontend/src/hooks/useGameWebSocket.test.ts",
+    "backend/app/services/game_broadcast.py",
+    "docs/websocket-api.md",
+    "README.md"
+  ],
+  "docsUpdated": ["docs/websocket-api.md", "README.md"],
+  "docsReviewed": ["DESIGN.md", "COPILOT_INSTRUCTIONS.md"]
+}
