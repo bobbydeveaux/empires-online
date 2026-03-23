@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import List
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -16,8 +17,10 @@ from app.schemas.schemas import (
     ActionResult,
     GameAction,
     VictoryPoints,
+    SpectatorToken,
 )
-from app.api.routes.auth import get_current_user
+from app.api.routes.auth import get_current_user, create_access_token
+from app.core.config import settings
 from app.services.game_logic import GameLogic
 from app.services.game_broadcast import (
     broadcast_event,
@@ -889,3 +892,33 @@ def get_leaderboard(game_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Game not found")
 
     return _build_leaderboard(db, game_id)
+
+
+@router.post("/{game_id}/spectate", response_model=SpectatorToken)
+def spectate_game(
+    game_id: int,
+    current_user: Player = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get a spectator token for watching a game in progress."""
+    game = db.query(Game).filter(Game.id == game_id).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    if game.phase not in ("development", "actions"):
+        raise HTTPException(
+            status_code=400,
+            detail="Can only spectate games that are in progress",
+        )
+
+    # Create a spectator-specific JWT with is_spectator claim
+    spectator_token = create_access_token(
+        data={
+            "sub": current_user.username,
+            "game_id": game_id,
+            "is_spectator": True,
+        },
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+
+    return SpectatorToken(spectator_token=spectator_token, game_id=game_id)

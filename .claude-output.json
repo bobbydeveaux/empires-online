@@ -1,20 +1,23 @@
 {
-  "prTitle": "feat: auto-record game result on terminal state",
-  "prBody": "## Summary\n\n- Add `GameResult` model and Alembic migration (`002_add_game_results`) for persisting game outcomes\n- Auto-create a `game_results` row when a game reaches `completed` phase, capturing winner, final rankings JSON, and duration\n- Add `GameResult` Pydantic schema for API serialization\n- Add 5 integration tests covering: result creation on completion, correct winner determination, rankings field validation, duration accuracy, and no premature result creation\n- Update existing lifecycle test to also verify GameResult is recorded\n- `broadcast_event` is already async (addresses prior review feedback about sync `asyncio.get_event_loop()`)\n\n### Review feedback addressed\n\n- **CRITICAL broadcast_event issue**: Already resolved in the existing code — `broadcast_event` is `async def` and uses `await _broadcast()`. No `asyncio.get_event_loop()` sync wrapper.\n- **Unused Optional import**: `Optional` IS used on line 98 (`game_state: Optional[Dict[str, Any]]`), so the import is correct.\n\nCloses #75",
+  "prTitle": "feat: add Spectate button to game lobby with spectator view",
+  "prBody": "## Summary\n\nAdds spectator mode to Empires Online, allowing authenticated users to watch in-progress games in real-time without being able to take actions.\n\n### Changes\n\n- **Backend**: Added `POST /games/{game_id}/spectate` endpoint that validates the game is in progress and issues a spectator JWT token with `is_spectator: true` claim\n- **Backend**: Added `SpectatorToken` Pydantic schema for the spectate API response\n- **Frontend**: Added `spectateGame()` API method to the games service\n- **Frontend**: Added \"Spectate\" button to `GameCardWithWs` for games in `development` or `actions` phase, alongside the existing \"View Game\" button\n- **Frontend**: Created `SpectatorView` page (`/spectate/:gameId`) with read-only game state display, player statuses, leaderboard, and live WebSocket updates\n- **Frontend**: Added `/spectate/:gameId` protected route to `App.tsx`\n- **Docs**: Updated README.md with spectate endpoint and marked spectator mode feature as complete\n- **Docs**: Updated websocket-api.md with spectator mode section documenting the flow, token, and route\n\n### Review Feedback Addressed\n\n- The `broadcast_event()` async issue was already fixed in the current code (function is async, awaits `_broadcast`)\n- The `Optional` import in `game_broadcast.py` is used on line 98, so it's not actually unused\n\nCloses #85",
   "testsPass": true,
   "filesChanged": [
-    "backend/app/models/models.py",
-    "backend/app/schemas/schemas.py",
-    "backend/alembic/versions/002_add_game_results.py",
     "backend/app/api/routes/games.py",
-    "backend/app/tests/test_integration.py"
+    "backend/app/schemas/schemas.py",
+    "frontend/src/App.tsx",
+    "frontend/src/pages/GameLobby.tsx",
+    "frontend/src/pages/SpectatorView.tsx",
+    "frontend/src/services/api.ts",
+    "README.md",
+    "docs/websocket-api.md"
   ],
   "docsUpdated": [
-    "docs/database-migrations.md",
-    "README.md"
+    "README.md",
+    "docs/websocket-api.md"
   ],
   "docsReviewed": [
-    "docs/websocket-api.md",
-    "docs/toast-notifications.md"
+    "docs/toast-notifications.md",
+    "docs/database-migrations.md"
   ]
 }

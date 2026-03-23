@@ -194,6 +194,29 @@ Both `Game.tsx` and `GameLobby.tsx` display a visual connection status indicator
 - **Red banner** with a reconnect button when disconnected
 - **Hidden** when connected (normal state)
 
+## Spectator Mode
+
+Spectators can watch in-progress games in real-time without being able to perform any actions.
+
+### Flow
+
+1. From the game lobby, click **Spectate** on an in-progress game card
+2. The frontend calls `POST /api/games/{game_id}/spectate` to obtain a spectator JWT token
+3. The spectator token is stored in `localStorage` as `spectatorToken:{gameId}`
+4. The user is navigated to `/spectate/{gameId}` which renders a read-only `SpectatorView`
+5. The `SpectatorView` connects to the same WebSocket endpoint using the spectator token
+6. All game state updates are received in real-time, but no action controls are shown
+
+### Spectator Token
+
+The spectator token is a standard JWT with an additional `is_spectator: true` claim and `game_id` field. It is issued by the `POST /games/{game_id}/spectate` endpoint and requires the user to be authenticated.
+
+### SpectatorView Route
+
+- **Route**: `/spectate/:gameId`
+- **Component**: `SpectatorView` (`frontend/src/pages/SpectatorView.tsx`)
+- **Features**: Read-only game state display, leaderboard, player status, connection status banner
+
 ## Architecture
 
 - **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms, with separate tracking for players and spectators. Supports connect, disconnect, join_room, join_room_as_spectator, leave_room, broadcast_to_room (reaches both players and spectators), and spectator_count tracking. Includes PostgreSQL NOTIFY/LISTEN support for cross-process event fanout.
