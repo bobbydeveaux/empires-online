@@ -162,6 +162,30 @@ def round_summary_message(
 
 
 
+def trade_proposed_message(
+    game_id: int,
+    trade: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "type": "trade_proposed",
+        "game_id": game_id,
+        "trade": trade,
+    }
+
+
+def trade_resolved_message(
+    game_id: int,
+    trade: Dict[str, Any],
+    resolution: str,
+) -> Dict[str, Any]:
+    return {
+        "type": "trade_resolved",
+        "game_id": game_id,
+        "trade": trade,
+        "resolution": resolution,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Broadcast dispatcher (runs as a BackgroundTask)
 # ---------------------------------------------------------------------------
