@@ -121,6 +121,19 @@ class VictoryPoints(BaseModel):
     breakdown: Dict[str, Any]
 
 
+class GameResult(BaseModel):
+    id: int
+    game_id: int
+    winner_country_id: int
+    winner_player_id: int
+    duration_rounds: int
+    finished_at: Optional[datetime] = None
+    final_rankings: str  # JSON string
+
+    class Config:
+        from_attributes = True
+
+
 class GameState(BaseModel):
     game: Game
     players: List[SpawnedCountryWithDetails]
