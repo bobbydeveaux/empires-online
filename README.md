@@ -150,13 +150,24 @@ Instability Penalty = If revolters > supporters, multiply total by 0.5
 - `POST /api/games/{id}/trades/{trade_id}/cancel` - Cancel a trade
 - `GET /api/games/{id}/trades` - List pending trades for a game
 
+### Trades
+- `POST /api/games/{id}/trades` - Propose a trade
+- `POST /api/games/{id}/trades/{trade_id}/accept` - Accept a trade
+- `POST /api/games/{id}/trades/{trade_id}/reject` - Reject a trade
+- `POST /api/games/{id}/trades/{trade_id}/cancel` - Cancel a trade
+- `GET /api/games/{id}/trades` - List pending trades
+
 ### Players
-- `GET /api/players/countries` - List available countries
 - `GET /api/players/me` - Get current player info
+- `GET /api/players/` - List all players
+- `GET /api/players/countries` - List available countries
+- `GET /api/players/{player_id}/history` - Get player's completed game history with placement
+- `GET /api/players/{player_id}/stats` - Get player's aggregated stats (total games, wins, win rate)
+- `GET /api/players/leaderboard` - Global all-time leaderboard (wins, win rate)
 
 ### WebSocket
 - `WS /ws/{game_id}?token=<jwt>` - Real-time game updates (JWT required via query param or Authorization header)
-- Game state changes (join, start, development, actions, round advance, game completion) are broadcast to all connected clients in real-time
+- Game state changes (join, start, development, actions, round advance, game completion, trades) are broadcast to all connected clients in real-time
 - See [docs/websocket-api.md](docs/websocket-api.md) for full message type reference
 
 ## Testing
@@ -212,10 +223,13 @@ docker-compose down
 - [x] Round summary endpoint with per-player action history
 - [x] New actions: recruit_people (2 gold), acquire_territory (3 gold)
 - [x] Implement trading between players (propose/accept/reject with atomic resource transfer)
+- [x] Trading UI: TradePanel (incoming/outgoing offers) and ProposeTrade modal with resource sliders
 - [x] Auto-record game results on completion (GameResult with winner, rankings, duration)
-- [ ] Add game history and statistics
+- [x] Player stats page with game history and global leaderboard
 - [ ] Create comprehensive API documentation
 - [x] Implement game spectator mode (backend: spectator WebSocket connections, POST /spectate endpoint, spectator_count in game listings; frontend: spectate button in lobby, read-only spectator view with live updates)
+- [x] Player stats page with game history and performance metrics
+- [x] Global leaderboard across all completed games
 
 ### Phase 3 - Polish (📋 Future)
 - [ ] Add AI opponents for single-player practice
@@ -268,3 +282,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - See [DESIGN.md](DESIGN.md) for complete game rules, API specifications, and implementation details
 - See [COPILOT_INSTRUCTIONS.md](COPILOT_INSTRUCTIONS.md) for development guidelines and architecture decisions
 - See [docs/websocket-api.md](docs/websocket-api.md) for WebSocket API and frontend hook documentation
+- See [docs/player-stats.md](docs/player-stats.md) for player stats and global leaderboard documentation

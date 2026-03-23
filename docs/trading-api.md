@@ -1,10 +1,12 @@
 # Trading API
 
-The trading system allows players to propose, accept, and reject resource trades during the **actions** phase of a game.
+## Overview
+
+Players can propose, accept, reject, and cancel resource trades with other players in the same game. Trading is available during the **actions** phase of a game.
 
 ## Endpoints
 
-All trading endpoints are nested under `/api/games/{game_id}/trades` and require JWT authentication.
+All trading endpoints are nested under `/api/games/{game_id}/trades` and require JWT authentication via the `Authorization: Bearer <token>` header.
 
 ### POST /api/games/{game_id}/trades — Propose a Trade
 
@@ -63,9 +65,19 @@ Accept a pending trade. Only the **receiver** can accept. Resources are transfer
 - Proposer must still have enough resources to fulfill the offer
 - Receiver must have enough resources to fulfill the request
 
+**Response:** `TradeOffer` object with status `"accepted"`.
+
 ### POST /api/games/{game_id}/trades/{trade_id}/reject — Reject a Trade
 
 Reject a pending trade. Only the **receiver** can reject. No resources are exchanged.
+
+**Response:** `TradeOffer` object with status `"rejected"`.
+
+### POST /api/games/{game_id}/trades/{trade_id}/cancel — Cancel a Trade
+
+Cancel a pending trade. Only the **proposer** can cancel their own trade.
+
+**Response:** `TradeOffer` object with status `"cancelled"`.
 
 ### GET /api/games/{game_id}/trades — List Pending Trades
 
@@ -89,15 +101,61 @@ Returns all pending (unresolved) trades for the given game.
 }
 ```
 
+## GameState `trade_allowed` Flag
+
+The `GameState` schema (returned by `GET /api/games/{game_id}` and included in `game_state_update` WebSocket broadcasts) contains a `trade_allowed` boolean field:
+
+- **`true`** — the game is in the `actions` phase and players may propose, accept, or reject trades
+- **`false`** — the game is in any other phase (`waiting`, `development`, `completed`) and trading is disabled
+
+Frontend clients should use this flag to show or hide the trading UI.
+
+## TypeScript Types
+
+Defined in `frontend/src/types/index.ts`:
+
+- **`TradeStatus`** — `'pending' | 'accepted' | 'rejected' | 'cancelled'`
+- **`TradeResource`** — Object with `gold`, `people`, and `territory` fields
+- **`TradeOffer`** — Full trade object with proposer/receiver IDs, offer/request amounts, status, and timestamps
+- **`TradePropose`** — Input type for proposing a new trade (receiver ID + resource amounts)
+
+## Frontend API Service
+
+The `tradesAPI` object in `frontend/src/services/api.ts` provides:
+
+```typescript
+import { tradesAPI } from '../services/api';
+
+// Propose a trade
+const trade = await tradesAPI.proposeTrade(gameId, {
+  receiver_country_id: 2,
+  offer_gold: 3,
+  offer_people: 0,
+  offer_territory: 1,
+  request_gold: 0,
+  request_people: 2,
+  request_territory: 0,
+});
+
+// List pending trades
+const trades = await tradesAPI.listTrades(gameId);
+
+// Accept / reject / cancel
+await tradesAPI.acceptTrade(gameId, tradeId);
+await tradesAPI.rejectTrade(gameId, tradeId);
+await tradesAPI.cancelTrade(gameId, tradeId);
+```
+
 ## WebSocket Events
 
 Trade actions broadcast events to all players in the game:
 
 | Event Type | Trigger | Payload |
 |---|---|---|
-| `trade_proposed` | New trade created | `game_id`, `trade_id`, `proposer_country_id`, `receiver_country_id` |
-| `trade_accepted` | Trade accepted | `game_id`, `trade_id`, `proposer_country_id`, `receiver_country_id` |
-| `trade_rejected` | Trade rejected | `game_id`, `trade_id`, `proposer_country_id`, `receiver_country_id` |
+| `trade_proposed` | New trade created | `game_id`, `trade` (full `TradeOffer`) |
+| `trade_resolved` | Trade accepted, rejected, or cancelled | `game_id`, `trade` (full `TradeOffer`), `resolution` |
+
+See [WebSocket API docs](websocket-api.md) for the full message type reference.
 
 ## Database Schema
 

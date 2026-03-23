@@ -128,7 +128,10 @@ def _advance_round(db: Session, game: Game, background_tasks: BackgroundTasks) -
 
     if game.phase == "completed":
         leaderboard = _build_leaderboard(db, game.id)
+
+        # Record game result
         _record_game_result(db, game, leaderboard)
+
         background_tasks.add_task(
             broadcast_event,
             game.id,
@@ -210,7 +213,12 @@ def _build_leaderboard(db: Session, game_id: int) -> list:
 
 
 def _record_game_result(db: Session, game: Game, leaderboard: list) -> None:
-    """Persist a GameResult row when a game reaches the completed state."""
+    """Persist a GameResult row when a game reaches the completed phase."""
+    # Don't double-record
+    existing = db.query(GameResult).filter(GameResult.game_id == game.id).first()
+    if existing:
+        return
+
     if not leaderboard:
         return
 
@@ -228,27 +236,26 @@ def _record_game_result(db: Session, game: Game, leaderboard: list) -> None:
     if not winner_sc:
         return
 
-    # Build final_rankings with placement and score for each player
-    final_rankings = [
-        {
-            "placement": idx + 1,
+    # Build ranked list for final_rankings JSON
+    rankings = []
+    for rank, entry in enumerate(leaderboard, start=1):
+        rankings.append({
+            "rank": rank,
             "player_id": entry["player_id"],
             "player_name": entry["player_name"],
             "country_name": entry["country_name"],
             "score": entry["score"],
             "breakdown": entry["breakdown"],
-        }
-        for idx, entry in enumerate(leaderboard)
-    ]
+        })
 
-    game_result = GameResult(
+    result = GameResult(
         game_id=game.id,
-        winner_country_id=winner_sc.id,
         winner_player_id=winner["player_id"],
+        winner_country_id=winner_sc.id,
         duration_rounds=game.rounds,
-        final_rankings=json.dumps(final_rankings),
+        final_rankings=json.dumps(rankings),
     )
-    db.add(game_result)
+    db.add(result)
     db.commit()
 
 
@@ -315,6 +322,7 @@ def _build_game_state_payload(db: Session, game: Game) -> dict:
         },
         "players": players,
         "leaderboard": leaderboard,
+        "trade_allowed": game.phase in ("actions",),
     }
 
 
@@ -429,6 +437,7 @@ def get_game_state(
         game=game,
         players=players_data,
         leaderboard=leaderboard,
+        trade_allowed=game.phase in ("actions",),
         spectator_count=manager.get_spectator_count(game_id),
     )
 
@@ -928,28 +937,33 @@ def get_leaderboard(game_id: int, db: Session = Depends(get_db)):
 @router.post("/{game_id}/spectate", response_model=SpectatorToken)
 def spectate_game(
     game_id: int,
-    current_user: Player = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get a spectator token for watching a game in progress."""
+    """Get a spectator token for watching a game.
+
+    This endpoint does not require authentication — anyone can request a
+    spectator token for an active game.  The returned JWT contains an
+    ``is_spectator`` claim that the WebSocket handler uses to grant
+    read-only access.
+    """
     game = db.query(Game).filter(Game.id == game_id).first()
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
 
-    if game.phase not in ("development", "actions"):
+    if game.phase == "completed":
         raise HTTPException(
             status_code=400,
-            detail="Can only spectate games that are in progress",
+            detail="Game is not active",
         )
 
     # Create a spectator-specific JWT with is_spectator claim
-    spectator_token = create_access_token(
+    token = create_access_token(
         data={
-            "sub": current_user.username,
+            "sub": f"spectator-game-{game_id}",
             "game_id": game_id,
             "is_spectator": True,
         },
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
 
-    return SpectatorToken(spectator_token=spectator_token, game_id=game_id)
+    return SpectatorToken(access_token=token, game_id=game_id)

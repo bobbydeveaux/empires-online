@@ -11,15 +11,20 @@ jest.mock('axios', () => {
   return {
     __esModule: true,
     default: { create: jest.fn(() => instance) },
+    _instance: instance,
   };
 });
 
-import { buildWebSocketUrl } from './api';
+import { buildWebSocketUrl, gamesAPI } from './api';
+
+// Access the mock instance via require (after mock is set up)
+const { _instance: mockAxios } = jest.requireMock('axios');
 
 const originalLocation = window.location;
 
 beforeEach(() => {
   localStorage.clear();
+  jest.clearAllMocks();
 });
 
 afterEach(() => {
@@ -66,5 +71,16 @@ describe('buildWebSocketUrl', () => {
 
     const url = buildWebSocketUrl(1);
     expect(url).toContain('?token=token%20with%20spaces%26special%3Dchars');
+  });
+});
+
+describe('gamesAPI.spectateGame', () => {
+  it('calls POST /games/{gameId}/spectate and returns the response', async () => {
+    const mockResponse = { data: { spectator_token: 'spec-token-123', game_id: 42 } };
+    mockAxios.post.mockResolvedValue(mockResponse);
+
+    const result = await gamesAPI.spectateGame(42);
+    expect(mockAxios.post).toHaveBeenCalledWith('/games/42/spectate');
+    expect(result).toEqual({ spectator_token: 'spec-token-123', game_id: 42 });
   });
 });

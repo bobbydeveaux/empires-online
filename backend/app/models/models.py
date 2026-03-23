@@ -17,6 +17,7 @@ class Player(Base):
     # Relationships
     spawned_countries = relationship("SpawnedCountry", back_populates="player")
     created_games = relationship("Game", back_populates="creator")
+    game_results_won = relationship("GameResult", back_populates="winner_player")
 
 
 class Country(Base):
@@ -156,9 +157,9 @@ class GameResult(Base):
     winner_player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
     duration_rounds = Column(Integer, nullable=False)
     finished_at = Column(DateTime(timezone=True), server_default=func.now())
-    final_rankings = Column(Text, nullable=False)  # JSON string
+    final_rankings = Column(Text, nullable=False)  # JSON string with ranked results
 
     # Relationships
     game = relationship("Game", back_populates="game_result")
     winner_country = relationship("SpawnedCountry")
-    winner_player = relationship("Player")
+    winner_player = relationship("Player", back_populates="game_results_won")

@@ -52,7 +52,45 @@ interface GameState {
 
 ## API
 
-The `gamesAPI.spectateGame(gameId)` method calls `POST /games/{gameId}/spectate` to obtain a spectator token. This endpoint requires backend support from the spectator-backend feature.
+### POST /games/{game_id}/spectate
+
+Returns a spectator JWT token for watching a game. **No authentication required.**
+
+- Allowed when game phase is `waiting`, `development`, or `actions`
+- Returns `400` when game phase is `completed`
+- Returns `404` when game does not exist
+
+**Response:**
+```json
+{
+  "access_token": "<jwt>",
+  "token_type": "bearer",
+  "is_spectator": true,
+  "game_id": 1
+}
+```
+
+The JWT contains claims: `sub` (spectator-game-{id}), `game_id`, and `is_spectator: true`.
+
+### WebSocket /ws/{game_id}/spectate
+
+Dedicated spectator WebSocket endpoint. Authenticate via query parameter: `/ws/{game_id}/spectate?token=<jwt>`.
+
+- Validates the JWT and checks the `is_spectator` claim — no player database lookup is required (the `sub` is a synthetic identifier, not a real username)
+- Spectators receive all game state broadcasts but cannot send action messages
+- Only `ping` messages are accepted; all other messages are rejected with a 403 error
+- On connect, a `spectator_joined` event with `spectator_count` is broadcast to the game room
+- On disconnect, a `spectator_left` event with updated `spectator_count` is broadcast
+
+### GET /games/
+
+Returns all active games with `spectator_count` field. Supports `?games_with_spectators=true` query parameter to filter to games that have at least one connected spectator.
+
+### GET /games/{game_id}
+
+The `GameState` response includes a `spectator_count` field (integer, defaults to 0).
+
+The frontend `gamesAPI.spectateGame(gameId)` method calls the spectate endpoint to obtain the token.
 
 ## WebSocket Hook
 

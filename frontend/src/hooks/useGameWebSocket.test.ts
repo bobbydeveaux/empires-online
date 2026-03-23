@@ -324,4 +324,250 @@ describe('useGameWebSocket', () => {
 
     expect(gamesAPI.getGameState).toHaveBeenCalledWith(1);
   });
+
+  it('should return isSpectator as false by default', () => {
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
+    expect(result.current.isSpectator).toBe(false);
+  });
+
+  it('should return isSpectator as true when option set', () => {
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token', isSpectator: true })
+    );
+    expect(result.current.isSpectator).toBe(true);
+  });
+
+  it('sendMessage should return false in spectator mode', async () => {
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token', isSpectator: true })
+    );
+
+    await act(async () => {
+      MockWebSocket.latest().simulateOpen();
+    });
+
+    const sent = result.current.sendMessage({ type: 'chat', message: 'hello' });
+    expect(sent).toBe(false);
+    expect(MockWebSocket.latest().send).not.toHaveBeenCalled();
+  });
+
+  it('sendMessage should send when not in spectator mode', async () => {
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
+
+    await act(async () => {
+      MockWebSocket.latest().simulateOpen();
+    });
+
+    const sent = result.current.sendMessage({ type: 'chat', message: 'hello' });
+    expect(sent).toBe(true);
+    expect(MockWebSocket.latest().send).toHaveBeenCalledWith(
+      JSON.stringify({ type: 'chat', message: 'hello' })
+    );
+  });
+
+  it('sendMessage should return false when connection is not open', () => {
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
+    // WebSocket is in CONNECTING state, not OPEN
+    const sent = result.current.sendMessage({ type: 'ping' });
+    expect(sent).toBe(false);
+  });
+
+  // --- Trade event tests ---
+
+  const mockTrade = {
+    id: 42,
+    game_id: 1,
+    proposer_country_id: 1,
+    receiver_country_id: 2,
+    offer_gold: 100,
+    offer_people: 0,
+    offer_territory: 0,
+    request_gold: 0,
+    request_people: 50,
+    request_territory: 0,
+    status: 'pending' as const,
+    created_at: '2026-01-01T00:00:00Z',
+  };
+
+  it('should add trade to trades list on trade_proposed', async () => {
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
+
+    await act(async () => {
+      MockWebSocket.latest().simulateOpen();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      MockWebSocket.latest().simulateMessage({
+        type: 'trade_proposed',
+        game_id: 1,
+        trade: mockTrade,
+      });
+    });
+
+    expect(result.current.trades).toEqual([mockTrade]);
+  });
+
+  it('should call onTradeNotification on trade_proposed', async () => {
+    const onTradeNotification = jest.fn();
+    renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token', onTradeNotification })
+    );
+
+    await act(async () => {
+      MockWebSocket.latest().simulateOpen();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      MockWebSocket.latest().simulateMessage({
+        type: 'trade_proposed',
+        game_id: 1,
+        trade: mockTrade,
+      });
+    });
+
+    expect(onTradeNotification).toHaveBeenCalledWith(
+      'New trade proposal received (Trade #42)',
+      'info',
+    );
+  });
+
+  it('should remove trade and show success on trade_resolved accepted', async () => {
+    const onTradeNotification = jest.fn();
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token', onTradeNotification })
+    );
+
+    await act(async () => {
+      MockWebSocket.latest().simulateOpen();
+      await Promise.resolve();
+    });
+
+    // First add a trade
+    await act(async () => {
+      MockWebSocket.latest().simulateMessage({
+        type: 'trade_proposed',
+        game_id: 1,
+        trade: mockTrade,
+      });
+    });
+
+    expect(result.current.trades).toHaveLength(1);
+
+    jest.clearAllMocks();
+    (gamesAPI.getGameState as jest.Mock).mockResolvedValue(mockGameState);
+
+    await act(async () => {
+      MockWebSocket.latest().simulateMessage({
+        type: 'trade_resolved',
+        game_id: 1,
+        trade: { ...mockTrade, status: 'accepted' as const },
+        resolution: 'accepted',
+      });
+    });
+
+    expect(result.current.trades).toHaveLength(0);
+    expect(onTradeNotification).toHaveBeenCalledWith(
+      'Trade #42 was accepted',
+      'success',
+    );
+    // Accepted trade should refetch game state (resources changed)
+    expect(gamesAPI.getGameState).toHaveBeenCalledWith(1);
+  });
+
+  it('should remove trade and show error on trade_resolved rejected', async () => {
+    const onTradeNotification = jest.fn();
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token', onTradeNotification })
+    );
+
+    await act(async () => {
+      MockWebSocket.latest().simulateOpen();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      MockWebSocket.latest().simulateMessage({
+        type: 'trade_proposed',
+        game_id: 1,
+        trade: mockTrade,
+      });
+    });
+
+    jest.clearAllMocks();
+    (gamesAPI.getGameState as jest.Mock).mockResolvedValue(mockGameState);
+
+    await act(async () => {
+      MockWebSocket.latest().simulateMessage({
+        type: 'trade_resolved',
+        game_id: 1,
+        trade: { ...mockTrade, status: 'rejected' as const },
+        resolution: 'rejected',
+      });
+    });
+
+    expect(result.current.trades).toHaveLength(0);
+    expect(onTradeNotification).toHaveBeenCalledWith(
+      'Trade #42 was rejected',
+      'error',
+    );
+    // Rejected trade should NOT refetch game state
+    expect(gamesAPI.getGameState).not.toHaveBeenCalled();
+  });
+
+  it('should remove trade and show info on trade_resolved cancelled', async () => {
+    const onTradeNotification = jest.fn();
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token', onTradeNotification })
+    );
+
+    await act(async () => {
+      MockWebSocket.latest().simulateOpen();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      MockWebSocket.latest().simulateMessage({
+        type: 'trade_proposed',
+        game_id: 1,
+        trade: mockTrade,
+      });
+    });
+
+    jest.clearAllMocks();
+    (gamesAPI.getGameState as jest.Mock).mockResolvedValue(mockGameState);
+
+    await act(async () => {
+      MockWebSocket.latest().simulateMessage({
+        type: 'trade_resolved',
+        game_id: 1,
+        trade: { ...mockTrade, status: 'cancelled' as const },
+        resolution: 'cancelled',
+      });
+    });
+
+    expect(result.current.trades).toHaveLength(0);
+    expect(onTradeNotification).toHaveBeenCalledWith(
+      'Trade #42 was cancelled',
+      'info',
+    );
+    expect(gamesAPI.getGameState).not.toHaveBeenCalled();
+  });
+
+  it('should initialize with empty trades array', () => {
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
+
+    expect(result.current.trades).toEqual([]);
+  });
 });

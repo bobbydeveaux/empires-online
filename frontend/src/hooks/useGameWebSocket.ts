@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { GameState, WsServerMessage, WsConnectionStatus, TradeOffer } from '../types';
+import { GameState, WsClientMessage, WsServerMessage, WsConnectionStatus, TradeOffer } from '../types';
 import { gamesAPI, getWebSocketUrl } from '../services/api';
 
 const INITIAL_RECONNECT_DELAY = 1000;
@@ -13,21 +13,27 @@ interface UseGameWebSocketOptions {
   token: string | null;
   /** Called when a WebSocket message is received. */
   onMessage?: (message: WsServerMessage) => void;
-  /** When true, connects in read-only spectator mode (no outbound action messages). */
+  /** Called when a trade toast notification should be shown. */
+  onTradeNotification?: (message: string, variant: 'success' | 'error' | 'info') => void;
+  /** When true, connects in read-only mode using the spectator token. Outbound action messages are rejected. */
   isSpectator?: boolean;
 }
 
 interface UseGameWebSocketReturn {
   /** Current game state (fetched via REST, kept in sync by WS events). */
   gameState: GameState | null;
+  /** Active (pending) trades for the current game. */
+  trades: TradeOffer[];
   /** WebSocket connection status. */
   connectionStatus: WsConnectionStatus;
   /** Manually trigger a reconnect. */
   reconnect: () => void;
   /** Manually refresh game state via REST. */
   refreshGameState: () => Promise<void>;
-  /** Active trades for this game, updated via WebSocket. */
-  trades: TradeOffer[];
+  /** Send a message over the WebSocket. Returns false if in spectator mode. */
+  sendMessage: (message: WsClientMessage) => boolean;
+  /** Whether this connection is in spectator (read-only) mode. */
+  isSpectator: boolean;
   /** Refresh trades from REST. */
   refreshTrades: () => Promise<void>;
 }
@@ -36,10 +42,12 @@ export function useGameWebSocket({
   gameId,
   token,
   onMessage,
+  onTradeNotification,
+  isSpectator = false,
 }: UseGameWebSocketOptions): UseGameWebSocketReturn {
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<WsConnectionStatus>('disconnected');
   const [trades, setTrades] = useState<TradeOffer[]>([]);
+  const [connectionStatus, setConnectionStatus] = useState<WsConnectionStatus>('disconnected');
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY);
@@ -48,6 +56,8 @@ export function useGameWebSocket({
   const mountedRef = useRef(true);
   const onMessageRef = useRef(onMessage);
   onMessageRef.current = onMessage;
+  const onTradeNotificationRef = useRef(onTradeNotification);
+  onTradeNotificationRef.current = onTradeNotification;
 
   // Fetch full game state via REST
   const fetchGameState = useCallback(async () => {
@@ -163,22 +173,31 @@ export function useGameWebSocket({
             fetchGameState();
             break;
           case 'trade_proposed':
-            // Add or update the trade in our local list
-            setTrades(prev => {
-              const existing = prev.findIndex(t => t.id === message.trade.id);
-              if (existing >= 0) {
-                const updated = [...prev];
-                updated[existing] = message.trade;
-                return updated;
-              }
-              return [...prev, message.trade];
-            });
+            setTrades(prev => [...prev, message.trade]);
+            onTradeNotificationRef.current?.(
+              `New trade proposal received (Trade #${message.trade.id})`,
+              'info',
+            );
             break;
           case 'trade_resolved':
-            // Remove resolved trade from active list and refresh game state
             setTrades(prev => prev.filter(t => t.id !== message.trade.id));
             if (message.resolution === 'accepted') {
+              onTradeNotificationRef.current?.(
+                `Trade #${message.trade.id} was accepted`,
+                'success',
+              );
+              // Resource balances changed — re-fetch game state
               fetchGameState();
+            } else if (message.resolution === 'rejected') {
+              onTradeNotificationRef.current?.(
+                `Trade #${message.trade.id} was rejected`,
+                'error',
+              );
+            } else {
+              onTradeNotificationRef.current?.(
+                `Trade #${message.trade.id} was cancelled`,
+                'info',
+              );
             }
             break;
           // pong, chat, error — no state refresh needed
@@ -204,6 +223,18 @@ export function useGameWebSocket({
     };
   }, [gameId, token, closeConnection, fetchGameState, fetchTrades, clearTimers, scheduleReconnect]);
 
+  // Send a message over the WebSocket (rejected in spectator mode)
+  const sendMessage = useCallback((message: WsClientMessage): boolean => {
+    if (isSpectator) {
+      return false;
+    }
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(message));
+      return true;
+    }
+    return false;
+  }, [isSpectator]);
+
   // Manual reconnect
   const reconnect = useCallback(() => {
     reconnectDelayRef.current = INITIAL_RECONNECT_DELAY;
@@ -224,10 +255,12 @@ export function useGameWebSocket({
 
   return {
     gameState,
+    trades,
     connectionStatus,
     reconnect,
     refreshGameState: fetchGameState,
-    trades,
+    sendMessage,
+    isSpectator,
     refreshTrades: fetchTrades,
   };
 }
