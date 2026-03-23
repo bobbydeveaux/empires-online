@@ -72,6 +72,16 @@ Returns a spectator JWT token for watching a game. **No authentication required.
 
 The JWT contains claims: `sub` (spectator-game-{id}), `game_id`, and `is_spectator: true`.
 
+### WebSocket /ws/{game_id}/spectate
+
+Dedicated spectator WebSocket endpoint. Authenticate via query parameter: `/ws/{game_id}/spectate?token=<jwt>`.
+
+- Validates the JWT and checks the `is_spectator` claim — no player database lookup is required (the `sub` is a synthetic identifier, not a real username)
+- Spectators receive all game state broadcasts but cannot send action messages
+- Only `ping` messages are accepted; all other messages are rejected with a 403 error
+- On connect, a `spectator_joined` event with `spectator_count` is broadcast to the game room
+- On disconnect, a `spectator_left` event with updated `spectator_count` is broadcast
+
 ### GET /games/
 
 Returns all active games with `spectator_count` field. Supports `?games_with_spectators=true` query parameter to filter to games that have at least one connected spectator.
