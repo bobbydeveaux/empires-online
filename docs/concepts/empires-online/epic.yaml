@@ -66,7 +66,7 @@ Epics:
       action (cost 3 gold, +1 territory) in GameLogic with server-side validation
       via can_perform_action(). Add stability check: if revolters > supporters at
       round end, deduct gold equal to the difference (floor 0). Add end-actions endpoint
-      and automatic phase transitions (actions→next round when all actions_completed=True).
+      and automatic phase transitions (actions->next round when all actions_completed=True).
       Add round summary endpoint returning per-player changes. Broadcast state updates
       via WebSocket after each action.'
     estimatedComplexity: medium
@@ -86,7 +86,7 @@ Epics:
     dependencies:
     - empires-online-feat-websocket-frontend
     - empires-online-feat-actions-stability
-    description: Add CSS media queries for mobile-responsive layout at ≤768px width
+    description: Add CSS media queries for mobile-responsive layout at <=768px width
       with no horizontal scrolling at 375px. Implement toast notification system for
       action confirmations, errors, and resource changes. Add recruit people and acquire
       territory buttons to ActionPanel component. Add round summary display showing
@@ -109,7 +109,7 @@ Epics:
       stability check, and auto phase transitions. Extend test_ws_endpoint.py with
       tests for game state broadcasting and reconnection. Add integration tests for
       round summary endpoint, end-actions endpoint, and full game lifecycle. Add unit
-      tests for ws_manager, game_broadcast, and init_db modules. Target ≥80% backend
+      tests for ws_manager, game_broadcast, and init_db modules. Target >=80% backend
       test coverage.
     estimatedComplexity: medium
     files:
@@ -126,4 +126,155 @@ Epics:
     type: feature
   ID: empires-online-epic-ux-quality
   Name: UX Polish & Quality
+- Features:
+  - Sprint: 3
+    dependencies:
+    - empires-online-feat-actions-stability
+    - empires-online-feat-alembic-setup
+    description: 'Add player-to-player trading system for in-game resource exchange.
+      Create Alembic migration adding trades table (id, game_id, proposer_country_id,
+      receiver_country_id, offer_gold, offer_people, offer_territory, request_gold,
+      request_people, request_territory, status, created_at). Implement TradeService
+      with propose_trade(), accept_trade(), reject_trade() methods including validation
+      (cannot offer resources you do not have, cannot trade with yourself). Add REST
+      endpoints: POST /games/{game_id}/trades (propose), POST /games/{game_id}/trades/{trade_id}/accept,
+      POST /games/{game_id}/trades/{trade_id}/reject, GET /games/{game_id}/trades
+      (list pending trades). Broadcast trade events via WebSocket game_broadcast after
+      acceptance. Add trade_allowed flag to GameState schema.'
+    estimatedComplexity: high
+    files:
+    - backend/app/models/models.py
+    - backend/alembic/versions/002_add_trades.py
+    - backend/app/services/trade_service.py
+    - backend/app/api/routes/trades.py
+    - backend/app/schemas/schemas.py
+    - backend/app/main.py
+    - backend/app/services/game_broadcast.py
+    id: empires-online-feat-trading-api
+    name: Player Trading API
+    project: backend
+    type: feature
+  - Sprint: 3
+    dependencies:
+    - empires-online-feat-trading-api
+    - empires-online-feat-websocket-frontend
+    description: 'Build trading UI for resource exchange between players. Add TradePanel
+      component to Game.tsx showing incoming trade offers with Accept/Reject buttons
+      and outgoing trades with Cancel button. Add ProposeTrade modal with resource
+      sliders for gold, people, territory (offer and request amounts). Wire up to
+      trading API endpoints via api.ts. Show trade notifications via existing Toast
+      system when trades are proposed, accepted, or rejected. Update useGameWebSocket
+      hook to handle trade_proposed and trade_resolved WebSocket events.'
+    estimatedComplexity: medium
+    files:
+    - frontend/src/components/TradePanel.tsx
+    - frontend/src/components/ProposeTrade.tsx
+    - frontend/src/pages/Game.tsx
+    - frontend/src/services/api.ts
+    - frontend/src/hooks/useGameWebSocket.ts
+    - frontend/src/types/index.ts
+    id: empires-online-feat-trading-ui
+    name: Trading UI
+    project: frontend
+    type: feature
+  ID: empires-online-epic-trading
+  Name: Player Trading
+- Features:
+  - Sprint: 3
+    dependencies:
+    - empires-online-feat-alembic-setup
+    description: 'Persist game results and player statistics for historical tracking.
+      Add Alembic migration for game_results table (id, game_id, winner_country_id,
+      winner_player_id, duration_rounds, finished_at, final_rankings JSON). Record
+      game result automatically when a game reaches terminal state (all players eliminated
+      except winner or game_over flag set). Add /players/{player_id}/history endpoint
+      returning list of past games with placement and stats. Add /leaderboard global
+      endpoint showing all-time win counts, win rates, and average placement across
+      players. Expose total_games, wins, losses, win_rate fields on Player schema.'
+    estimatedComplexity: medium
+    files:
+    - backend/app/models/models.py
+    - backend/alembic/versions/003_add_game_results.py
+    - backend/app/services/game_service.py
+    - backend/app/api/routes/players.py
+    - backend/app/api/routes/games.py
+    - backend/app/schemas/schemas.py
+    id: empires-online-feat-game-history
+    name: Game History & Player Stats Backend
+    project: backend
+    type: feature
+  - Sprint: 3
+    dependencies:
+    - empires-online-feat-game-history
+    - empires-online-feat-websocket-frontend
+    description: 'Build player statistics and game history pages. Add /stats route
+      to React router. Create PlayerStats page showing: games played, wins, losses,
+      win rate percentage, average final placement, and a table of recent games with
+      date, duration (rounds), and placement. Create GlobalLeaderboard component showing
+      top 10 players ranked by win rate (minimum 3 games). Add History tab to GameLobby
+      page linking to PlayerStats for the current user. Use existing api.ts pattern
+      to fetch from /players/{id}/history and /leaderboard endpoints.'
+    estimatedComplexity: medium
+    files:
+    - frontend/src/pages/PlayerStats.tsx
+    - frontend/src/components/GlobalLeaderboard.tsx
+    - frontend/src/pages/GameLobby.tsx
+    - frontend/src/services/api.ts
+    - frontend/src/types/index.ts
+    - frontend/src/App.tsx
+    id: empires-online-feat-stats-ui
+    name: Player Stats & Leaderboard UI
+    project: frontend
+    type: feature
+  ID: empires-online-epic-history
+  Name: Game History & Statistics
+- Features:
+  - Sprint: 3
+    dependencies:
+    - empires-online-feat-websocket-backend
+    - empires-online-feat-alembic-setup
+    description: 'Allow non-players to join a game as spectators and watch in real-time.
+      Add spectator_join endpoint: POST /games/{game_id}/spectate returning a spectator
+      JWT or session token. Extend ws_manager to support spectator connections in
+      a separate spectators set per room. Broadcast full game state to spectators
+      on join and on every state-change event (same payload as players receive). Add
+      is_spectator flag to WebSocket connection context so spectators cannot send
+      action messages (server rejects with 403). Add spectator_count field to GameState
+      schema. Update GET /games/ to show spectator_count and allow filtering by
+      games_with_spectators=true.'
+    estimatedComplexity: medium
+    files:
+    - backend/app/api/routes/games.py
+    - backend/app/api/routes/ws.py
+    - backend/app/services/ws_manager.py
+    - backend/app/schemas/schemas.py
+    id: empires-online-feat-spectator-backend
+    name: Spectator Mode Backend
+    project: backend
+    type: feature
+  - Sprint: 3
+    dependencies:
+    - empires-online-feat-spectator-backend
+    - empires-online-feat-websocket-frontend
+    description: 'Build spectator UI for watching games in real-time without participating.
+      Add Spectate button to game lobby list for games in progress. Create SpectatorView
+      page (read-only variant of Game.tsx) showing full game state: all countries
+      resources, current round, action phase, stability state, and leaderboard panel.
+      Disable all action buttons in spectator mode. Show spectator count badge in
+      the game header. Update useGameWebSocket hook to connect with spectator token
+      and handle read-only mode. Add /spectate/:gameId route in App.tsx.'
+    estimatedComplexity: medium
+    files:
+    - frontend/src/pages/SpectatorView.tsx
+    - frontend/src/pages/GameLobby.tsx
+    - frontend/src/hooks/useGameWebSocket.ts
+    - frontend/src/services/api.ts
+    - frontend/src/types/index.ts
+    - frontend/src/App.tsx
+    id: empires-online-feat-spectator-ui
+    name: Spectator Mode UI
+    project: frontend
+    type: feature
+  ID: empires-online-epic-spectator
+  Name: Spectator Mode
 Version: v1alpha1
