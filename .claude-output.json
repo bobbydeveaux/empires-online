@@ -1,0 +1,20 @@
+{
+  "prTitle": "feat: add PlayerStats page and GlobalLeaderboard component",
+  "prBody": "## Summary\n\nAdds player statistics tracking and a global leaderboard across all completed games.\n\n### Backend\n- `GET /api/players/leaderboard` - Global leaderboard ranked by wins then average score\n- `GET /api/players/{id}/stats` - Detailed player stats including game history, win rate, favorite country\n\n### Frontend\n- **GlobalLeaderboard component** - Reusable table showing all players ranked by performance with clickable rows\n- **PlayerStats page** (`/stats/:playerId`) - Summary cards (games, wins, best score), performance metrics, countries played breakdown, and full game history table\n- **StatsPage** (`/stats`) - Landing page showing the global leaderboard\n- Navigation: Added \"Leaderboard\" link to Navbar\n- Routes: `/stats` and `/stats/:playerId` added to App.tsx\n\n### Review Feedback\n- Verified `broadcast_event` is already async (fix was applied in prior iteration)\n- Verified `Optional` import is used (line 98 of game_broadcast.py)\n\nCloses #78",
+  "testsPass": true,
+  "filesChanged": [
+    "backend/app/api/routes/players.py",
+    "frontend/src/types/index.ts",
+    "frontend/src/services/api.ts",
+    "frontend/src/components/GlobalLeaderboard.tsx",
+    "frontend/src/components/GlobalLeaderboard.test.tsx",
+    "frontend/src/pages/PlayerStats.tsx",
+    "frontend/src/App.tsx",
+    "frontend/src/components/Navbar.tsx",
+    "backend/app/tests/test_player_stats.py",
+    "README.md",
+    "docs/player-stats.md"
+  ],
+  "docsUpdated": ["README.md", "docs/player-stats.md"],
+  "docsReviewed": ["docs/websocket-api.md", "docs/spectator-mode.md", "DESIGN.md"]
+}
