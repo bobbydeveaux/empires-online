@@ -1,0 +1,14 @@
+{
+  "alreadyImplemented": true,
+  "prTitle": "chore: close duplicate - feature already exists",
+  "prBody": "## Summary\n\nThe Trade REST endpoints, broadcast messages, and router wiring requested in issue #68 are already fully implemented and working correctly in the codebase.\n\n## Review Feedback Status\n\nThe review feedback from the previous iteration has already been addressed:\n\n1. **CRITICAL: `broadcast_event()` sync issue** - Already fixed. The function at `game_broadcast.py:200-207` is `async` and uses `await _broadcast(...)`, exactly as the reviewer suggested.\n2. **Unused `Optional` import** - False positive. `Optional` is used on line 98 in `game_state_update_message(game_id: int, game_state: Optional[Dict[str, Any]] = None)`.\n3. **N+1 queries in `_build_leaderboard`** - Pre-existing code, non-blocking per reviewer.\n\nCloses #68",
+  "explanation": "The requested functionality already exists with:\n- Trade REST endpoints (propose, accept, reject, list) in backend/app/api/routes/trades.py\n- Trade broadcast messages (trade_proposed, trade_resolved) in backend/app/services/game_broadcast.py\n- Router wiring in backend/app/main.py (trades router under /api/games prefix)\n- Async broadcast_event function (already fixed from previous review feedback)\n- Comprehensive test coverage in test_trade_service.py (24 tests) and test_trade_endpoints.py (18 tests)\n- Full documentation in docs/trading-api.md and docs/websocket-api.md\n\nThe branch was initialized from master which already contains all these changes (merged in PRs #94 and #97). No code changes are needed.",
+  "testsPass": true,
+  "filesChanged": [],
+  "docsUpdated": [],
+  "docsReviewed": [
+    "docs/trading-api.md",
+    "docs/websocket-api.md",
+    "README.md"
+  ]
+}
