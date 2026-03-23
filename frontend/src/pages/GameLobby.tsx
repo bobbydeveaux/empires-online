@@ -59,6 +59,12 @@ const GameLobby: React.FC = () => {
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button
             className="btn btn-secondary"
+            onClick={() => navigate('/stats')}
+          >
+            History &amp; Stats
+          </button>
+          <button
+            className="btn btn-secondary"
             onClick={loadData}
             title="Refresh game list"
           >
