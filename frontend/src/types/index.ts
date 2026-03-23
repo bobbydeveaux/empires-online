@@ -175,5 +175,39 @@ export type WsServerMessage =
   | WsPongMessage
   | WsErrorMessage;
 
+// Trade types
+export type TradeStatus = 'pending' | 'accepted' | 'rejected';
+
+export interface TradeResource {
+  gold: number;
+  people: number;
+  territory: number;
+}
+
+export interface TradeOffer {
+  id: number;
+  game_id: number;
+  proposer_country_id: number;
+  receiver_country_id: number;
+  offer_gold: number;
+  offer_people: number;
+  offer_territory: number;
+  request_gold: number;
+  request_people: number;
+  request_territory: number;
+  status: TradeStatus;
+  created_at: string;
+}
+
+export interface TradePropose {
+  receiver_country_id: number;
+  offer_gold: number;
+  offer_people: number;
+  offer_territory: number;
+  request_gold: number;
+  request_people: number;
+  request_territory: number;
+}
+
 // WebSocket connection status
 export type WsConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';

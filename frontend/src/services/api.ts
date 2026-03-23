@@ -8,7 +8,9 @@ import {
   ActionResult,
   GameAction,
   LeaderboardEntry,
-  AuthToken
+  AuthToken,
+  TradeOffer,
+  TradePropose,
 } from '../types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
@@ -128,7 +130,32 @@ export const gamesAPI = {
   spectateGame: async (gameId: number): Promise<{ spectator_token: string; game_id: number }> => {
     const response = await api.post(`/games/${gameId}/spectate`);
     return response.data;
-  }
+  },
+
+  listTrades: async (gameId: number): Promise<TradeOffer[]> => {
+    const response = await api.get(`/games/${gameId}/trades`);
+    return response.data;
+  },
+
+  proposeTrade: async (gameId: number, proposal: TradePropose): Promise<TradeOffer> => {
+    const response = await api.post(`/games/${gameId}/trades`, proposal);
+    return response.data;
+  },
+
+  acceptTrade: async (gameId: number, tradeId: number): Promise<TradeOffer> => {
+    const response = await api.post(`/games/${gameId}/trades/${tradeId}/accept`);
+    return response.data;
+  },
+
+  rejectTrade: async (gameId: number, tradeId: number): Promise<TradeOffer> => {
+    const response = await api.post(`/games/${gameId}/trades/${tradeId}/reject`);
+    return response.data;
+  },
+
+  cancelTrade: async (gameId: number, tradeId: number): Promise<TradeOffer> => {
+    const response = await api.post(`/games/${gameId}/trades/${tradeId}/reject`);
+    return response.data;
+  },
 };
 
 // WebSocket URL builder

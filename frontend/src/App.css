@@ -505,3 +505,57 @@ code {
   padding: 3px 10px;
   border-radius: 12px;
 }
+
+/* Trade panel */
+.trade-item {
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #eee;
+  margin-bottom: 10px;
+}
+
+.trade-incoming {
+  background: #fff8e1;
+  border-color: #ffe082;
+}
+
+.trade-outgoing {
+  background: #e3f2fd;
+  border-color: #90caf9;
+}
+
+/* Trade modal */
+.trade-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.trade-modal {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.trade-slider-section {
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 6px;
+  border: 1px solid #eee;
+}
+
+.trade-slider-section input[type="range"] {
+  accent-color: #1976d2;
+}
