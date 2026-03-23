@@ -1,131 +1,86 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { TradeOffer, SpawnedCountryWithDetails } from '../types';
-import { gamesAPI } from '../services/api';
 
 interface TradePanelProps {
-  gameId: number;
   trades: TradeOffer[];
   currentPlayer: SpawnedCountryWithDetails;
-  players: SpawnedCountryWithDetails[];
-  onTradeUpdate: () => void;
+  onAccept: (tradeId: number) => void;
+  onReject: (tradeId: number) => void;
+  onCancel: (tradeId: number) => void;
   onOpenPropose: () => void;
-  onToast: (message: string, type: 'success' | 'error') => void;
+  loading: boolean;
 }
 
+const resourceSummary = (gold: number, people: number, territory: number): string => {
+  const parts: string[] = [];
+  if (gold > 0) parts.push(`${gold} gold`);
+  if (people > 0) parts.push(`${people} people`);
+  if (territory > 0) parts.push(`${territory} territory`);
+  return parts.length > 0 ? parts.join(', ') : 'nothing';
+};
+
 const TradePanel: React.FC<TradePanelProps> = ({
-  gameId,
   trades,
   currentPlayer,
-  players,
-  onTradeUpdate,
+  onAccept,
+  onReject,
+  onCancel,
   onOpenPropose,
-  onToast,
+  loading,
 }) => {
-  const [loading, setLoading] = useState<number | null>(null);
-
-  const getCountryName = (countryId: number): string => {
-    const player = players.find(p => p.id === countryId);
-    return player ? `${player.player.username} (${player.country.name})` : `Country #${countryId}`;
-  };
-
-  const incomingTrades = trades.filter(
-    t => t.receiver_country_id === currentPlayer.id && t.status === 'pending'
-  );
-
-  const outgoingTrades = trades.filter(
-    t => t.proposer_country_id === currentPlayer.id && t.status === 'pending'
-  );
-
-  const handleAccept = async (tradeId: number) => {
-    setLoading(tradeId);
-    try {
-      await gamesAPI.acceptTrade(gameId, tradeId);
-      onToast('Trade accepted!', 'success');
-      onTradeUpdate();
-    } catch (err: any) {
-      onToast(err.response?.data?.detail || 'Failed to accept trade', 'error');
-    } finally {
-      setLoading(null);
-    }
-  };
-
-  const handleReject = async (tradeId: number) => {
-    setLoading(tradeId);
-    try {
-      await gamesAPI.rejectTrade(gameId, tradeId);
-      onToast('Trade rejected', 'success');
-      onTradeUpdate();
-    } catch (err: any) {
-      onToast(err.response?.data?.detail || 'Failed to reject trade', 'error');
-    } finally {
-      setLoading(null);
-    }
-  };
-
-  const handleCancel = async (tradeId: number) => {
-    setLoading(tradeId);
-    try {
-      await gamesAPI.cancelTrade(gameId, tradeId);
-      onToast('Trade cancelled', 'success');
-      onTradeUpdate();
-    } catch (err: any) {
-      onToast(err.response?.data?.detail || 'Failed to cancel trade', 'error');
-    } finally {
-      setLoading(null);
-    }
-  };
-
-  const renderResources = (label: string, gold: number, people: number, territory: number) => {
-    const parts: string[] = [];
-    if (gold > 0) parts.push(`${gold} gold`);
-    if (people > 0) parts.push(`${people} people`);
-    if (territory > 0) parts.push(`${territory} territory`);
-    return parts.length > 0 ? `${label}: ${parts.join(', ')}` : `${label}: nothing`;
-  };
+  const incoming = trades.filter(t => t.receiver_country_id === currentPlayer.id);
+  const outgoing = trades.filter(t => t.proposer_country_id === currentPlayer.id);
 
   return (
     <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h3 style={{ margin: 0 }}>Trade Offers</h3>
-        <button className="btn" onClick={onOpenPropose}>
+        <button className="btn btn-sm" onClick={onOpenPropose} disabled={loading}>
           Propose Trade
         </button>
       </div>
 
-      {incomingTrades.length === 0 && outgoingTrades.length === 0 && (
-        <p style={{ color: '#666', fontSize: '14px' }}>
-          No pending trades. Use "Propose Trade" to send a trade offer to another player.
+      {trades.length === 0 && (
+        <p style={{ fontSize: '14px', color: '#666', marginTop: '10px' }}>
+          No active trades. Propose a trade to another player!
         </p>
       )}
 
-      {incomingTrades.length > 0 && (
-        <div style={{ marginBottom: '15px' }}>
-          <h4 style={{ marginBottom: '10px' }}>Incoming Offers</h4>
-          {incomingTrades.map(trade => (
-            <div key={trade.id} className="trade-item trade-incoming">
-              <div style={{ marginBottom: '8px' }}>
-                <strong>From:</strong> {getCountryName(trade.proposer_country_id)}
+      {incoming.length > 0 && (
+        <div style={{ marginTop: '15px' }}>
+          <h4 style={{ marginBottom: '8px' }}>Incoming Offers</h4>
+          {incoming.map(trade => (
+            <div key={trade.id} className="trade-card trade-incoming">
+              <div className="trade-card-header">
+                <strong>{trade.proposer_name || `Country #${trade.proposer_country_id}`}</strong>
+                {trade.proposer_country_name && (
+                  <span style={{ color: '#666', fontSize: '12px' }}> ({trade.proposer_country_name})</span>
+                )}
               </div>
-              <div style={{ fontSize: '14px', marginBottom: '4px' }}>
-                {renderResources('They offer', trade.offer_gold, trade.offer_people, trade.offer_territory)}
+              <div className="trade-card-body">
+                <div>
+                  <span style={{ color: '#2e7d32', fontWeight: 500 }}>You receive:</span>{' '}
+                  {resourceSummary(trade.offer_gold, trade.offer_people, trade.offer_territory)}
+                </div>
+                <div>
+                  <span style={{ color: '#d32f2f', fontWeight: 500 }}>They request:</span>{' '}
+                  {resourceSummary(trade.request_gold, trade.request_people, trade.request_territory)}
+                </div>
               </div>
-              <div style={{ fontSize: '14px', marginBottom: '10px' }}>
-                {renderResources('They request', trade.request_gold, trade.request_people, trade.request_territory)}
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div className="trade-card-actions">
                 <button
-                  className="btn btn-sm"
-                  onClick={() => handleAccept(trade.id)}
-                  disabled={loading === trade.id}
+                  className="btn btn-sm btn-recruit"
+                  onClick={() => onAccept(trade.id)}
+                  disabled={loading}
                 >
-                  {loading === trade.id ? 'Processing...' : 'Accept'}
+                  Accept
                 </button>
                 <button
-                  className="btn btn-danger btn-sm"
-                  onClick={() => handleReject(trade.id)}
-                  disabled={loading === trade.id}
+                  className="btn btn-sm btn-danger"
+                  onClick={() => onReject(trade.id)}
+                  disabled={loading}
                 >
-                  {loading === trade.id ? 'Processing...' : 'Reject'}
+                  Reject
                 </button>
               </div>
             </div>
@@ -133,27 +88,36 @@ const TradePanel: React.FC<TradePanelProps> = ({
         </div>
       )}
 
-      {outgoingTrades.length > 0 && (
-        <div>
-          <h4 style={{ marginBottom: '10px' }}>Outgoing Offers</h4>
-          {outgoingTrades.map(trade => (
-            <div key={trade.id} className="trade-item trade-outgoing">
-              <div style={{ marginBottom: '8px' }}>
-                <strong>To:</strong> {getCountryName(trade.receiver_country_id)}
+      {outgoing.length > 0 && (
+        <div style={{ marginTop: '15px' }}>
+          <h4 style={{ marginBottom: '8px' }}>Outgoing Offers</h4>
+          {outgoing.map(trade => (
+            <div key={trade.id} className="trade-card trade-outgoing">
+              <div className="trade-card-header">
+                <strong>To: {trade.receiver_name || `Country #${trade.receiver_country_id}`}</strong>
+                {trade.receiver_country_name && (
+                  <span style={{ color: '#666', fontSize: '12px' }}> ({trade.receiver_country_name})</span>
+                )}
               </div>
-              <div style={{ fontSize: '14px', marginBottom: '4px' }}>
-                {renderResources('You offer', trade.offer_gold, trade.offer_people, trade.offer_territory)}
+              <div className="trade-card-body">
+                <div>
+                  <span style={{ color: '#d32f2f', fontWeight: 500 }}>You offer:</span>{' '}
+                  {resourceSummary(trade.offer_gold, trade.offer_people, trade.offer_territory)}
+                </div>
+                <div>
+                  <span style={{ color: '#2e7d32', fontWeight: 500 }}>You request:</span>{' '}
+                  {resourceSummary(trade.request_gold, trade.request_people, trade.request_territory)}
+                </div>
               </div>
-              <div style={{ fontSize: '14px', marginBottom: '10px' }}>
-                {renderResources('You request', trade.request_gold, trade.request_people, trade.request_territory)}
+              <div className="trade-card-actions">
+                <button
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => onCancel(trade.id)}
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
               </div>
-              <button
-                className="btn-secondary btn-sm"
-                onClick={() => handleCancel(trade.id)}
-                disabled={loading === trade.id}
-              >
-                {loading === trade.id ? 'Cancelling...' : 'Cancel'}
-              </button>
             </div>
           ))}
         </div>

@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import auth, games, players, ws
+from app.api.routes import auth, games, players, trades, ws
 from app.core.config import settings
 from app.services.ws_manager import manager
 
@@ -45,6 +45,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 app.include_router(games.router, prefix="/api/games", tags=["games"])
+app.include_router(trades.router, prefix="/api/games", tags=["trades"])
 app.include_router(players.router, prefix="/api/players", tags=["players"])
 app.include_router(ws.router, tags=["websocket"])
 

@@ -1,9 +1,11 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { GameState, SpawnedCountryWithDetails, GameAction, WsServerMessage } from '../types';
+import { GameState, SpawnedCountryWithDetails, GameAction, WsServerMessage, TradePropose } from '../types';
 import { gamesAPI } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { useGameWebSocket } from '../hooks/useGameWebSocket';
+import TradePanel from '../components/TradePanel';
+import ProposeTrade from '../components/ProposeTrade';
 // Toast notification types
 interface Toast {
   id: number;
@@ -28,6 +30,8 @@ const Game: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
   const { user } = useAuth();
   const [actionLoading, setActionLoading] = useState(false);
+  const [tradeLoading, setTradeLoading] = useState(false);
+  const [showProposeTrade, setShowProposeTrade] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [roundSummary, setRoundSummary] = useState<PlayerDelta[] | null>(null);
   const previousStateRef = useRef<GameState | null>(null);
@@ -48,9 +52,16 @@ const Game: React.FC = () => {
     if (message.type === 'error') {
       console.warn('WebSocket error:', message.message);
     }
-  }, []);
+    if (message.type === 'trade_proposed') {
+      addToast(`New trade offer from ${message.trade.proposer_name || 'a player'}`, 'success');
+    }
+    if (message.type === 'trade_resolved') {
+      const label = message.resolution === 'accepted' ? 'accepted' : message.resolution === 'rejected' ? 'rejected' : 'cancelled';
+      addToast(`Trade ${label}`, 'success');
+    }
+  }, [addToast]);
 
-  const { gameState, connectionStatus, reconnect, refreshGameState } = useGameWebSocket({
+  const { gameState, connectionStatus, reconnect, refreshGameState, trades, refreshTrades } = useGameWebSocket({
     gameId: numericGameId,
     token,
     onMessage: handleWsMessage,
@@ -151,6 +162,64 @@ const Game: React.FC = () => {
     }
   };
 
+  const handleProposeTrade = async (trade: TradePropose) => {
+    if (!gameId) return;
+    setTradeLoading(true);
+    try {
+      await gamesAPI.proposeTrade(Number(gameId), trade);
+      await refreshTrades();
+      setShowProposeTrade(false);
+      addToast('Trade proposed!', 'success');
+    } catch (err: any) {
+      addToast(err.response?.data?.detail || 'Failed to propose trade', 'error');
+    } finally {
+      setTradeLoading(false);
+    }
+  };
+
+  const handleAcceptTrade = async (tradeId: number) => {
+    if (!gameId) return;
+    setTradeLoading(true);
+    try {
+      await gamesAPI.acceptTrade(Number(gameId), tradeId);
+      await refreshTrades();
+      await refreshGameState();
+      addToast('Trade accepted!', 'success');
+    } catch (err: any) {
+      addToast(err.response?.data?.detail || 'Failed to accept trade', 'error');
+    } finally {
+      setTradeLoading(false);
+    }
+  };
+
+  const handleRejectTrade = async (tradeId: number) => {
+    if (!gameId) return;
+    setTradeLoading(true);
+    try {
+      await gamesAPI.rejectTrade(Number(gameId), tradeId);
+      await refreshTrades();
+      addToast('Trade rejected', 'success');
+    } catch (err: any) {
+      addToast(err.response?.data?.detail || 'Failed to reject trade', 'error');
+    } finally {
+      setTradeLoading(false);
+    }
+  };
+
+  const handleCancelTrade = async (tradeId: number) => {
+    if (!gameId) return;
+    setTradeLoading(true);
+    try {
+      await gamesAPI.cancelTrade(Number(gameId), tradeId);
+      await refreshTrades();
+      addToast('Trade cancelled', 'success');
+    } catch (err: any) {
+      addToast(err.response?.data?.detail || 'Failed to cancel trade', 'error');
+    } finally {
+      setTradeLoading(false);
+    }
+  };
+
   if (loading) {
     return <div className="loading">Loading game...</div>;
   }
@@ -238,6 +307,30 @@ const Game: React.FC = () => {
             />
           )}
         </div>
+      )}
+
+      {/* Trade Panel - visible during active games */}
+      {currentPlayer && gameState.game.phase !== 'waiting' && gameState.game.phase !== 'completed' && (
+        <TradePanel
+          trades={trades}
+          currentPlayer={currentPlayer}
+          onAccept={handleAcceptTrade}
+          onReject={handleRejectTrade}
+          onCancel={handleCancelTrade}
+          onOpenPropose={() => setShowProposeTrade(true)}
+          loading={tradeLoading}
+        />
+      )}
+
+      {/* Propose Trade Modal */}
+      {showProposeTrade && currentPlayer && (
+        <ProposeTrade
+          currentPlayer={currentPlayer}
+          otherPlayers={gameState.players.filter(p => p.id !== currentPlayer.id)}
+          onPropose={handleProposeTrade}
+          onClose={() => setShowProposeTrade(false)}
+          loading={tradeLoading}
+        />
       )}
 
       {/* All Players */}

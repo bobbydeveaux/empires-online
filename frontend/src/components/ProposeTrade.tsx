@@ -1,104 +1,87 @@
 import React, { useState } from 'react';
-import { SpawnedCountryWithDetails } from '../types';
-import { gamesAPI } from '../services/api';
+import { SpawnedCountryWithDetails, TradePropose } from '../types';
 
 interface ProposeTradeProps {
-  gameId: number;
   currentPlayer: SpawnedCountryWithDetails;
-  players: SpawnedCountryWithDetails[];
+  otherPlayers: SpawnedCountryWithDetails[];
+  onPropose: (trade: TradePropose) => void;
   onClose: () => void;
-  onTradeProposed: () => void;
-  onToast: (message: string, type: 'success' | 'error') => void;
+  loading: boolean;
 }
 
 const ProposeTrade: React.FC<ProposeTradeProps> = ({
-  gameId,
   currentPlayer,
-  players,
+  otherPlayers,
+  onPropose,
   onClose,
-  onTradeProposed,
-  onToast,
+  loading,
 }) => {
-  const otherPlayers = players.filter(p => p.id !== currentPlayer.id);
-
-  const [receiverId, setReceiverId] = useState<number>(
-    otherPlayers.length > 0 ? otherPlayers[0].id : 0
-  );
+  const [receiverId, setReceiverId] = useState<number>(otherPlayers[0]?.id ?? 0);
   const [offerGold, setOfferGold] = useState(0);
   const [offerPeople, setOfferPeople] = useState(0);
   const [offerTerritory, setOfferTerritory] = useState(0);
   const [requestGold, setRequestGold] = useState(0);
   const [requestPeople, setRequestPeople] = useState(0);
   const [requestTerritory, setRequestTerritory] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
 
   const hasOffer = offerGold > 0 || offerPeople > 0 || offerTerritory > 0;
   const hasRequest = requestGold > 0 || requestPeople > 0 || requestTerritory > 0;
-  const canSubmit = receiverId > 0 && (hasOffer || hasRequest) && !submitting;
+  const canAfford =
+    offerGold <= currentPlayer.gold &&
+    offerPeople <= currentPlayer.people &&
+    offerTerritory <= currentPlayer.territories;
+  const isValid = receiverId > 0 && hasOffer && hasRequest && canAfford;
 
-  const handleSubmit = async () => {
-    if (!canSubmit) return;
-    setSubmitting(true);
-    try {
-      await gamesAPI.proposeTrade(gameId, {
-        receiver_country_id: receiverId,
-        offer_gold: offerGold,
-        offer_people: offerPeople,
-        offer_territory: offerTerritory,
-        request_gold: requestGold,
-        request_people: requestPeople,
-        request_territory: requestTerritory,
-      });
-      onToast('Trade proposed!', 'success');
-      onTradeProposed();
-      onClose();
-    } catch (err: any) {
-      onToast(err.response?.data?.detail || 'Failed to propose trade', 'error');
-    } finally {
-      setSubmitting(false);
-    }
+  const handleSubmit = () => {
+    if (!isValid) return;
+    onPropose({
+      receiver_country_id: receiverId,
+      offer_gold: offerGold,
+      offer_people: offerPeople,
+      offer_territory: offerTerritory,
+      request_gold: requestGold,
+      request_people: requestPeople,
+      request_territory: requestTerritory,
+    });
   };
 
-  const renderSlider = (
+  const sliderRow = (
     label: string,
     value: number,
     max: number,
-    onChange: (val: number) => void,
+    onChange: (v: number) => void
   ) => (
-    <div style={{ marginBottom: '12px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '4px' }}>
+    <div style={{ marginBottom: '10px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
         <span>{label}</span>
-        <span style={{ fontWeight: 'bold' }}>{value}</span>
+        <span>{value} / {max}</span>
       </div>
       <input
         type="range"
         min={0}
         max={max}
         value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
+        onChange={e => onChange(Number(e.target.value))}
         style={{ width: '100%' }}
+        disabled={loading}
       />
     </div>
   );
 
   return (
     <div className="trade-modal-overlay" onClick={onClose}>
-      <div className="trade-modal" onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div className="trade-modal" onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
           <h3 style={{ margin: 0 }}>Propose Trade</h3>
-          <button
-            onClick={onClose}
-            style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#666' }}
-          >
-            X
-          </button>
+          <button className="btn-secondary btn-sm" onClick={onClose}>Close</button>
         </div>
 
         <div className="form-group">
           <label>Trade with:</label>
           <select
             value={receiverId}
-            onChange={(e) => setReceiverId(Number(e.target.value))}
+            onChange={e => setReceiverId(Number(e.target.value))}
+            disabled={loading}
           >
             {otherPlayers.map(p => (
               <option key={p.id} value={p.id}>
@@ -108,36 +91,37 @@ const ProposeTrade: React.FC<ProposeTradeProps> = ({
           </select>
         </div>
 
-        <div className="grid grid-2" style={{ gap: '20px', marginTop: '15px' }}>
+        <div className="grid grid-2" style={{ gap: '15px', marginTop: '15px' }}>
           <div>
-            <h4 style={{ marginBottom: '10px', color: '#d32f2f' }}>You Offer</h4>
-            <div className="trade-slider-section">
-              {renderSlider('Gold', offerGold, currentPlayer.gold, setOfferGold)}
-              {renderSlider('People', offerPeople, currentPlayer.people, setOfferPeople)}
-              {renderSlider('Territory', offerTerritory, currentPlayer.territories, setOfferTerritory)}
-            </div>
+            <h4 style={{ marginTop: 0, color: '#d32f2f' }}>You Offer</h4>
+            {sliderRow('Gold', offerGold, currentPlayer.gold, setOfferGold)}
+            {sliderRow('People', offerPeople, currentPlayer.people, setOfferPeople)}
+            {sliderRow('Territory', offerTerritory, currentPlayer.territories, setOfferTerritory)}
           </div>
-
           <div>
-            <h4 style={{ marginBottom: '10px', color: '#2e7d32' }}>You Request</h4>
-            <div className="trade-slider-section">
-              {renderSlider('Gold', requestGold, 999, setRequestGold)}
-              {renderSlider('People', requestPeople, 999, setRequestPeople)}
-              {renderSlider('Territory', requestTerritory, 999, setRequestTerritory)}
-            </div>
+            <h4 style={{ marginTop: 0, color: '#2e7d32' }}>You Request</h4>
+            {sliderRow('Gold', requestGold, 99, setRequestGold)}
+            {sliderRow('People', requestPeople, 99, setRequestPeople)}
+            {sliderRow('Territory', requestTerritory, 99, setRequestTerritory)}
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
-          <button className="btn-secondary" onClick={onClose}>
-            Cancel
-          </button>
+        {!canAfford && (
+          <div className="error" style={{ marginTop: '10px' }}>
+            You don't have enough resources to offer this trade.
+          </div>
+        )}
+
+        <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
           <button
             className="btn"
             onClick={handleSubmit}
-            disabled={!canSubmit}
+            disabled={loading || !isValid}
           >
-            {submitting ? 'Sending...' : 'Send Proposal'}
+            {loading ? 'Proposing...' : 'Propose Trade'}
+          </button>
+          <button className="btn-secondary" onClick={onClose} disabled={loading}>
+            Cancel
           </button>
         </div>
       </div>

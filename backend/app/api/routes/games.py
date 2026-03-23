@@ -1,6 +1,6 @@
 from datetime import timedelta
-from typing import List
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from typing import List, Optional
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
@@ -36,6 +36,7 @@ from app.services.game_broadcast import (
     stability_check_message,
     round_summary_message,
 )
+from app.services.ws_manager import manager
 import json
 
 router = APIRouter()
@@ -127,7 +128,10 @@ def _advance_round(db: Session, game: Game, background_tasks: BackgroundTasks) -
 
     if game.phase == "completed":
         leaderboard = _build_leaderboard(db, game.id)
+
+        # Record game result
         _record_game_result(db, game, leaderboard)
+
         background_tasks.add_task(
             broadcast_event,
             game.id,
@@ -209,7 +213,12 @@ def _build_leaderboard(db: Session, game_id: int) -> list:
 
 
 def _record_game_result(db: Session, game: Game, leaderboard: list) -> None:
-    """Persist a GameResult row when a game reaches the completed state."""
+    """Persist a GameResult row when a game reaches the completed phase."""
+    # Don't double-record
+    existing = db.query(GameResult).filter(GameResult.game_id == game.id).first()
+    if existing:
+        return
+
     if not leaderboard:
         return
 
@@ -227,27 +236,26 @@ def _record_game_result(db: Session, game: Game, leaderboard: list) -> None:
     if not winner_sc:
         return
 
-    # Build final_rankings with placement and score for each player
-    final_rankings = [
-        {
-            "placement": idx + 1,
+    # Build ranked list for final_rankings JSON
+    rankings = []
+    for rank, entry in enumerate(leaderboard, start=1):
+        rankings.append({
+            "rank": rank,
             "player_id": entry["player_id"],
             "player_name": entry["player_name"],
             "country_name": entry["country_name"],
             "score": entry["score"],
             "breakdown": entry["breakdown"],
-        }
-        for idx, entry in enumerate(leaderboard)
-    ]
+        })
 
-    game_result = GameResult(
+    result = GameResult(
         game_id=game.id,
-        winner_country_id=winner_sc.id,
         winner_player_id=winner["player_id"],
+        winner_country_id=winner_sc.id,
         duration_rounds=game.rounds,
-        final_rankings=json.dumps(final_rankings),
+        final_rankings=json.dumps(rankings),
     )
-    db.add(game_result)
+    db.add(result)
     db.commit()
 
 
@@ -345,14 +353,39 @@ def create_game(
     return db_game
 
 
-@router.get("/", response_model=List[GameSchema])
-def list_games(db: Session = Depends(get_db)):
-    """List all available games."""
-    return (
+@router.get("/")
+def list_games(
+    games_with_spectators: Optional[bool] = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    """List all available games.
+
+    Optional query param ``games_with_spectators=true`` filters to games
+    that currently have at least one spectator connected.
+    """
+    games = (
         db.query(Game)
         .filter(Game.phase.in_(["waiting", "development", "actions"]))
         .all()
     )
+
+    result = []
+    for game in games:
+        spectator_count = manager.get_spectator_count(game.id)
+        if games_with_spectators and spectator_count == 0:
+            continue
+        game_dict = {
+            "id": game.id,
+            "rounds": game.rounds,
+            "rounds_remaining": game.rounds_remaining,
+            "phase": game.phase,
+            "creator_id": game.creator_id,
+            "created_at": game.created_at.isoformat() if game.created_at else None,
+            "started_at": game.started_at.isoformat() if game.started_at else None,
+            "spectator_count": spectator_count,
+        }
+        result.append(game_dict)
+    return result
 
 
 @router.get("/{game_id}", response_model=GameState)
@@ -399,7 +432,12 @@ def get_game_state(
     # Sort leaderboard by score
     leaderboard.sort(key=lambda x: x["score"], reverse=True)
 
-    return GameState(game=game, players=players_data, leaderboard=leaderboard)
+    return GameState(
+        game=game,
+        players=players_data,
+        leaderboard=leaderboard,
+        spectator_count=manager.get_spectator_count(game_id),
+    )
 
 
 @router.post("/{game_id}/join")
