@@ -937,28 +937,33 @@ def get_leaderboard(game_id: int, db: Session = Depends(get_db)):
 @router.post("/{game_id}/spectate", response_model=SpectatorToken)
 def spectate_game(
     game_id: int,
-    current_user: Player = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get a spectator token for watching a game in progress."""
+    """Get a spectator token for watching a game.
+
+    This endpoint does not require authentication — anyone can request a
+    spectator token for an active game.  The returned JWT contains an
+    ``is_spectator`` claim that the WebSocket handler uses to grant
+    read-only access.
+    """
     game = db.query(Game).filter(Game.id == game_id).first()
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
 
-    if game.phase not in ("development", "actions"):
+    if game.phase == "completed":
         raise HTTPException(
             status_code=400,
-            detail="Can only spectate games that are in progress",
+            detail="Game is not active",
         )
 
     # Create a spectator-specific JWT with is_spectator claim
-    spectator_token = create_access_token(
+    token = create_access_token(
         data={
-            "sub": current_user.username,
+            "sub": f"spectator-game-{game_id}",
             "game_id": game_id,
             "is_spectator": True,
         },
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
 
-    return SpectatorToken(spectator_token=spectator_token, game_id=game_id)
+    return SpectatorToken(access_token=token, game_id=game_id)
