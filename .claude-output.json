@@ -1,0 +1,11 @@
+{
+  "prTitle": "fix: resolve duplicate Alembic revision ID for trades migration",
+  "prBody": "## Summary\n\nThe Trade database model and Alembic migration already existed on this branch. However, the trades migration (`002_add_trades.py`) had a **duplicate revision ID** (`002`) conflicting with the pre-existing `002_add_game_results.py` migration. This would cause Alembic to fail with a \"multiple heads\" or \"duplicate revision\" error.\n\n### Changes\n- Renamed trades migration from `002` to `003` and updated its `down_revision` to point to `002` (game_results), establishing a proper migration chain: `001` -> `002` (game_results) -> `003` (trades)\n- Updated `docs/database-migrations.md` to include the trades migration in the migration files table\n\n### Review Feedback Addressed\nThe previous review flagged two issues:\n1. **`broadcast_event()` sync issue** - Already fixed: the function is now `async` and can be safely passed to `background_tasks.add_task()`\n2. **Unused `Optional` import** - Not actually unused: it's used in `game_state_update_message()` on line 98\n\nNo further code changes were needed for the review feedback items.\n\nCloses #65",
+  "testsPass": true,
+  "filesChanged": [
+    "backend/alembic/versions/003_add_trades.py",
+    "docs/database-migrations.md"
+  ],
+  "docsUpdated": ["docs/database-migrations.md"],
+  "docsReviewed": ["docs/trading-api.md", "docs/database-migrations.md", "README.md"]
+}
