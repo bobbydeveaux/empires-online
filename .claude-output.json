@@ -1,0 +1,25 @@
+{
+  "prTitle": "feat: build SpectatorView page with read-only game display",
+  "prBody": "## Summary\n\n- Create `SpectatorView.tsx` as a read-only variant of `Game.tsx` that displays full game state (all countries' resources, round info, phase, leaderboard) without any action buttons\n- Add spectator count badge and \"Spectating\" indicator in the game header\n- Add `spectator_count` optional field to `GameState` TypeScript type\n- Add `spectateGame` API method for future backend integration\n- Add `isSpectator` option to `useGameWebSocket` hook for spectator mode connections\n- Register `/spectate/:gameId` as a protected route in `App.tsx`\n- Add spectator badge CSS styles\n- Real-time updates via WebSocket with connection status banner and round summary display\n\nCloses #84",
+  "testsPass": true,
+  "filesChanged": [
+    "frontend/src/pages/SpectatorView.tsx",
+    "frontend/src/App.tsx",
+    "frontend/src/App.css",
+    "frontend/src/types/index.ts",
+    "frontend/src/services/api.ts",
+    "frontend/src/hooks/useGameWebSocket.ts",
+    "docs/spectator-mode.md",
+    "README.md",
+    "COPILOT_INSTRUCTIONS.md"
+  ],
+  "docsUpdated": [
+    "docs/spectator-mode.md",
+    "README.md",
+    "COPILOT_INSTRUCTIONS.md"
+  ],
+  "docsReviewed": [
+    "docs/websocket-api.md",
+    "docs/toast-notifications.md"
+  ]
+}
