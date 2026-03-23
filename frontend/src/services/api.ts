@@ -8,7 +8,9 @@ import {
   ActionResult,
   GameAction,
   LeaderboardEntry,
-  AuthToken
+  AuthToken,
+  PlayerHistoryResponse,
+  GlobalLeaderboardEntry,
 } from '../types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
@@ -129,6 +131,19 @@ export const gamesAPI = {
     const response = await api.post(`/games/${gameId}/spectate`);
     return response.data;
   }
+};
+
+// Stats & Leaderboard API
+export const statsAPI = {
+  fetchPlayerHistory: async (playerId: number): Promise<PlayerHistoryResponse> => {
+    const response = await api.get(`/players/${playerId}/history`);
+    return response.data;
+  },
+
+  fetchLeaderboard: async (): Promise<GlobalLeaderboardEntry[]> => {
+    const response = await api.get('/leaderboard');
+    return response.data;
+  },
 };
 
 // WebSocket URL builder

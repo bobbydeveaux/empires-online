@@ -14,7 +14,11 @@ jest.mock('axios', () => {
   };
 });
 
-import { buildWebSocketUrl } from './api';
+import { buildWebSocketUrl, statsAPI } from './api';
+import axios from 'axios';
+
+// Get the mocked axios instance
+const mockedAxios = axios.create() as jest.Mocked<ReturnType<typeof axios.create>>;
 
 const originalLocation = window.location;
 
@@ -66,5 +70,58 @@ describe('buildWebSocketUrl', () => {
 
     const url = buildWebSocketUrl(1);
     expect(url).toContain('?token=token%20with%20spaces%26special%3Dchars');
+  });
+});
+
+describe('statsAPI', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('fetchPlayerHistory', () => {
+    it('calls GET /players/{playerId}/history and returns response data', async () => {
+      const mockResponse = {
+        player_id: 1,
+        username: 'testuser',
+        stats: { total_games: 5, wins: 3, losses: 2, win_rate: 0.6 },
+        history: [
+          {
+            game_id: 10,
+            placement: 1,
+            score: 42,
+            country_name: 'Rome',
+            duration_rounds: 5,
+            finished_at: '2026-03-20T12:00:00Z',
+          },
+        ],
+      };
+      mockedAxios.get.mockResolvedValueOnce({ data: mockResponse });
+
+      const result = await statsAPI.fetchPlayerHistory(1);
+
+      expect(mockedAxios.get).toHaveBeenCalledWith('/players/1/history');
+      expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('fetchLeaderboard', () => {
+    it('calls GET /leaderboard and returns response data', async () => {
+      const mockResponse = [
+        {
+          player_id: 1,
+          username: 'topplayer',
+          total_games: 10,
+          wins: 8,
+          win_rate: 0.8,
+          avg_placement: 1.5,
+        },
+      ];
+      mockedAxios.get.mockResolvedValueOnce({ data: mockResponse });
+
+      const result = await statsAPI.fetchLeaderboard();
+
+      expect(mockedAxios.get).toHaveBeenCalledWith('/leaderboard');
+      expect(result).toEqual(mockResponse);
+    });
   });
 });

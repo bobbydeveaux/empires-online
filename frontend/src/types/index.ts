@@ -104,6 +104,40 @@ export interface AuthToken {
   token_type: string;
 }
 
+// Player stats and game history types
+
+export interface PlayerStats {
+  total_games: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+}
+
+export interface GameHistoryEntry {
+  game_id: number;
+  placement: number;
+  score: number;
+  country_name: string;
+  duration_rounds: number;
+  finished_at: string;
+}
+
+export interface GlobalLeaderboardEntry {
+  player_id: number;
+  username: string;
+  total_games: number;
+  wins: number;
+  win_rate: number;
+  avg_placement: number;
+}
+
+export interface PlayerHistoryResponse {
+  player_id: number;
+  username: string;
+  stats: PlayerStats;
+  history: GameHistoryEntry[];
+}
+
 // WebSocket message types
 
 // Shared payload types

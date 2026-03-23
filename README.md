@@ -146,6 +146,10 @@ Instability Penalty = If revolters > supporters, multiply total by 0.5
 ### Players
 - `GET /api/players/countries` - List available countries
 - `GET /api/players/me` - Get current player info
+- `GET /api/players/{id}/history` - Get player game history and stats
+
+### Leaderboard
+- `GET /api/leaderboard` - Get global leaderboard (all-time rankings)
 
 ### WebSocket
 - `WS /ws/{game_id}?token=<jwt>` - Real-time game updates (JWT required via query param or Authorization header)
