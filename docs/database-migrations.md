@@ -75,3 +75,4 @@ alembic history
 | Revision | Description |
 |----------|-------------|
 | `001` | Initial schema - all tables (players, countries, games, spawned_countries, game_history) with `stability_checked` column on games |
+| `002` | Add `game_results` table for recording game outcomes (winner, rankings, duration) |

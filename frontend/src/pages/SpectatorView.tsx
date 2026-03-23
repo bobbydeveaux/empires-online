@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { GameState, SpawnedCountryWithDetails, WsServerMessage } from '../types';
 import { useGameWebSocket } from '../hooks/useGameWebSocket';
 
@@ -16,22 +16,29 @@ interface PlayerDelta {
 
 const SpectatorView: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
+  const navigate = useNavigate();
   const [roundSummary, setRoundSummary] = useState<PlayerDelta[] | null>(null);
   const previousStateRef = useRef<GameState | null>(null);
   const previousRoundRef = useRef<number | null>(null);
 
-  const token = localStorage.getItem('authToken');
   const numericGameId = gameId ? Number(gameId) : null;
+
+  const spectatorToken = gameId
+    ? localStorage.getItem(`spectatorToken:${gameId}`)
+    : null;
+  const authToken = localStorage.getItem('authToken');
+  // Use spectator token for WebSocket if available, fall back to auth token
+  const wsToken = spectatorToken || authToken;
 
   const handleWsMessage = useCallback((message: WsServerMessage) => {
     if (message.type === 'error') {
-      console.warn('WebSocket error:', message.message);
+      console.warn('Spectator WebSocket error:', message.message);
     }
   }, []);
 
   const { gameState, connectionStatus, reconnect } = useGameWebSocket({
     gameId: numericGameId,
-    token,
+    token: wsToken,
     onMessage: handleWsMessage,
     isSpectator: true,
   });
@@ -69,13 +76,43 @@ const SpectatorView: React.FC = () => {
   }
 
   if (!gameState) {
-    return <div className="error">Game not found</div>;
+    return (
+      <div className="card">
+        <h2>Game not found</h2>
+        <button className="btn" onClick={() => navigate('/lobby')}>
+          Back to Lobby
+        </button>
+      </div>
+    );
   }
 
   const spectatorCount = gameState.spectator_count ?? 0;
 
   return (
     <div>
+      {/* Spectator Banner */}
+      <div
+        style={{
+          backgroundColor: '#e3f2fd',
+          color: '#1565c0',
+          padding: '8px 16px',
+          marginBottom: '16px',
+          borderRadius: '4px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderLeft: '4px solid #1565c0',
+        }}
+      >
+        <span>Spectator Mode — You are watching this game (read-only)</span>
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => navigate('/lobby')}
+        >
+          Back to Lobby
+        </button>
+      </div>
+
       {/* Connection Status Banner */}
       <SpectatorConnectionBanner status={connectionStatus} onReconnect={reconnect} />
 
@@ -92,8 +129,9 @@ const SpectatorView: React.FC = () => {
           )}
         </div>
         <div>
-          <strong>Round:</strong> {gameState.game.rounds - gameState.game.rounds_remaining + 1} / {gameState.game.rounds} |{' '}
-          <strong>Phase:</strong> {gameState.game.phase}
+          <strong>Round:</strong>{' '}
+          {gameState.game.rounds - gameState.game.rounds_remaining + 1} /{' '}
+          {gameState.game.rounds} | <strong>Phase:</strong> {gameState.game.phase}
         </div>
       </div>
 
@@ -107,19 +145,24 @@ const SpectatorView: React.FC = () => {
 
       {/* All Players */}
       <div className="card">
-        <h3>All Players</h3>
+        <h3>Players</h3>
         <div className="grid grid-2">
-          {gameState.players.map(player => (
+          {gameState.players.map((player) => (
             <div key={player.id} className="card">
-              <h4>{player.player.username} - {player.country.name}</h4>
+              <h4>
+                {player.player.username} - {player.country.name}
+              </h4>
               <SpectatorPlayerStatus player={player} />
 
               {gameState.game.phase === 'development' && (
                 <div style={{ marginTop: '10px', fontSize: '14px' }}>
-                  <span style={{
-                    color: player.development_completed ? '#2e7d32' : '#ff9800'
-                  }}>
-                    Development: {player.development_completed ? 'Completed' : 'Pending'}
+                  <span
+                    style={{
+                      color: player.development_completed ? '#2e7d32' : '#ff9800',
+                    }}
+                  >
+                    Development:{' '}
+                    {player.development_completed ? 'Completed' : 'Pending'}
                   </span>
                 </div>
               )}
@@ -156,14 +199,20 @@ const SpectatorView: React.FC = () => {
             </thead>
             <tbody>
               {gameState.leaderboard.map((entry, index) => (
-                <tr key={entry.player_id} style={{ borderBottom: '1px solid #eee' }}>
+                <tr
+                  key={entry.player_id}
+                  style={{ borderBottom: '1px solid #eee' }}
+                >
                   <td style={{ padding: '10px' }}>{index + 1}</td>
                   <td style={{ padding: '10px' }}>{entry.player_name}</td>
                   <td style={{ padding: '10px' }}>{entry.country_name}</td>
                   <td style={{ padding: '10px', textAlign: 'right' }}>
                     {entry.score.toFixed(1)}
                     {entry.breakdown.instability_penalty && (
-                      <span style={{ color: '#d32f2f', fontSize: '12px' }}> (Instability Penalty)</span>
+                      <span style={{ color: '#d32f2f', fontSize: '12px' }}>
+                        {' '}
+                        (Instability Penalty)
+                      </span>
                     )}
                   </td>
                   <td style={{ padding: '10px', textAlign: 'right' }}>{entry.breakdown.base_score}</td>
@@ -253,22 +302,30 @@ interface SpectatorPlayerStatusProps {
   player: SpawnedCountryWithDetails;
 }
 
-const SpectatorPlayerStatus: React.FC<SpectatorPlayerStatusProps> = ({ player }) => {
+const SpectatorPlayerStatus: React.FC<SpectatorPlayerStatusProps> = ({
+  player,
+}) => {
   return (
     <div className="grid grid-3" style={{ fontSize: '14px' }}>
       <div>
-        <strong>Gold:</strong> {player.gold}<br />
-        <strong>Bonds:</strong> {player.bonds}<br />
+        <strong>Gold:</strong> {player.gold}
+        <br />
+        <strong>Bonds:</strong> {player.bonds}
+        <br />
         <strong>Banks:</strong> {player.banks}
       </div>
       <div>
-        <strong>Territories:</strong> {player.territories}<br />
-        <strong>Goods:</strong> {player.goods}<br />
+        <strong>Territories:</strong> {player.territories}
+        <br />
+        <strong>Goods:</strong> {player.goods}
+        <br />
         <strong>People:</strong> {player.people}
       </div>
       <div>
-        <strong>Supporters:</strong> {player.supporters}<br />
-        <strong>Revolters:</strong> {player.revolters}<br />
+        <strong>Supporters:</strong> {player.supporters}
+        <br />
+        <strong>Revolters:</strong> {player.revolters}
+        <br />
         <strong>Net Stability:</strong> {player.supporters - player.revolters}
       </div>
     </div>

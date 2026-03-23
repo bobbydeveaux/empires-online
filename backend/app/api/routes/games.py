@@ -1,10 +1,11 @@
+from datetime import timedelta
 from typing import List
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
 from app.core.database import get_db
-from app.models.models import Game, Player, Country, SpawnedCountry, GameHistory
+from app.models.models import Game, Player, Country, SpawnedCountry, GameHistory, GameResult
 from app.schemas.schemas import (
     GameCreate,
     Game as GameSchema,
@@ -16,8 +17,10 @@ from app.schemas.schemas import (
     ActionResult,
     GameAction,
     VictoryPoints,
+    SpectatorToken,
 )
-from app.api.routes.auth import get_current_user
+from app.api.routes.auth import get_current_user, create_access_token
+from app.core.config import settings
 from app.services.game_logic import GameLogic
 from app.services.game_broadcast import (
     broadcast_event,
@@ -124,6 +127,7 @@ def _advance_round(db: Session, game: Game, background_tasks: BackgroundTasks) -
 
     if game.phase == "completed":
         leaderboard = _build_leaderboard(db, game.id)
+        _record_game_result(db, game, leaderboard)
         background_tasks.add_task(
             broadcast_event,
             game.id,
@@ -202,6 +206,49 @@ def _build_leaderboard(db: Session, game_id: int) -> list:
         )
     leaderboard.sort(key=lambda x: x["score"], reverse=True)
     return leaderboard
+
+
+def _record_game_result(db: Session, game: Game, leaderboard: list) -> None:
+    """Persist a GameResult row when a game reaches the completed state."""
+    if not leaderboard:
+        return
+
+    winner = leaderboard[0]  # Already sorted descending by score
+
+    # Find the winner's spawned country
+    winner_sc = (
+        db.query(SpawnedCountry)
+        .filter(
+            SpawnedCountry.game_id == game.id,
+            SpawnedCountry.player_id == winner["player_id"],
+        )
+        .first()
+    )
+    if not winner_sc:
+        return
+
+    # Build final_rankings with placement and score for each player
+    final_rankings = [
+        {
+            "placement": idx + 1,
+            "player_id": entry["player_id"],
+            "player_name": entry["player_name"],
+            "country_name": entry["country_name"],
+            "score": entry["score"],
+            "breakdown": entry["breakdown"],
+        }
+        for idx, entry in enumerate(leaderboard)
+    ]
+
+    game_result = GameResult(
+        game_id=game.id,
+        winner_country_id=winner_sc.id,
+        winner_player_id=winner["player_id"],
+        duration_rounds=game.rounds,
+        final_rankings=json.dumps(final_rankings),
+    )
+    db.add(game_result)
+    db.commit()
 
 
 def _build_game_state_payload(db: Session, game: Game) -> dict:
@@ -845,3 +892,33 @@ def get_leaderboard(game_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Game not found")
 
     return _build_leaderboard(db, game_id)
+
+
+@router.post("/{game_id}/spectate", response_model=SpectatorToken)
+def spectate_game(
+    game_id: int,
+    current_user: Player = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get a spectator token for watching a game in progress."""
+    game = db.query(Game).filter(Game.id == game_id).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    if game.phase not in ("development", "actions"):
+        raise HTTPException(
+            status_code=400,
+            detail="Can only spectate games that are in progress",
+        )
+
+    # Create a spectator-specific JWT with is_spectator claim
+    spectator_token = create_access_token(
+        data={
+            "sub": current_user.username,
+            "game_id": game_id,
+            "is_spectator": True,
+        },
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+
+    return SpectatorToken(spectator_token=spectator_token, game_id=game_id)

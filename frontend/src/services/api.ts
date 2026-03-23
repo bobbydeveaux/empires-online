@@ -125,7 +125,7 @@ export const gamesAPI = {
     return response.data;
   },
 
-  spectateGame: async (gameId: number): Promise<{ token: string }> => {
+  spectateGame: async (gameId: number): Promise<{ spectator_token: string; game_id: number }> => {
     const response = await api.post(`/games/${gameId}/spectate`);
     return response.data;
   }
