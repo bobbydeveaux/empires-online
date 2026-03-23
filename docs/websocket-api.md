@@ -17,12 +17,22 @@ Invalid or missing tokens result in a close with code `1008` (Policy Violation).
 
 ## Connection Flow
 
+### Player Connection
 1. Client connects with a valid JWT token
 2. Server validates the token and looks up the player
 3. Connection is accepted and added to the game room
 4. A `player_joined` message is broadcast to the room
 5. Client can send/receive messages
 6. On disconnect, a `player_left` message is broadcast
+
+### Spectator Connection
+1. Client obtains a spectator token via `POST /api/games/{game_id}/spectate`
+2. Client connects with the spectator token (contains `is_spectator: true` claim)
+3. Connection is accepted and added to a separate spectators set
+4. A `spectator_joined` message is sent to the spectator
+5. Spectator receives all game broadcasts (same as players)
+6. Any non-ping message from a spectator is rejected with a `403` error
+7. On disconnect, spectator is removed from tracking
 
 ## Message Types
 
@@ -43,7 +53,8 @@ Invalid or missing tokens result in a close with code `1008` (Policy Violation).
 | `player_left` | `{"game_id", "player": {"id", "username"}}` | A player disconnected from the WebSocket room |
 | `pong` | `{}` | Response to a `ping` |
 | `chat` | `{"game_id", "player": {"id", "username"}, "message"}` | Chat message broadcast |
-| `error` | `{"message": "..."}` | Error response for unknown message types |
+| `spectator_joined` | `{"game_id"}` | Sent to a spectator on successful connection |
+| `error` | `{"message": "..."}` or `{"code": 403, "message": "..."}` | Error response for unknown message types or spectator action rejection |
 
 #### Game State Events
 
@@ -160,7 +171,7 @@ Both `Game.tsx` and `GameLobby.tsx` display a visual connection status indicator
 
 ## Architecture
 
-- **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms with connect, disconnect, join_room, leave_room, and broadcast_to_room operations. Includes PostgreSQL NOTIFY/LISTEN support for cross-process event fanout.
+- **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms with connect, disconnect, join_room, leave_room, and broadcast_to_room operations. Supports spectator connections in a separate tracking set per room with `connect_spectator`, `disconnect_spectator`, `is_spectator`, and `get_spectator_count` methods. Broadcasts are sent to both players and spectators. Includes PostgreSQL NOTIFY/LISTEN support for cross-process event fanout.
 - **GameBroadcast** (`backend/app/services/game_broadcast.py`): Provides message builders for each game event type (including `game_state_update` with full game state) and an async `broadcast_event()` function used as a FastAPI `BackgroundTask`.
 - **WebSocket Route** (`backend/app/api/routes/ws.py`): Handles the `/ws/{game_id}` endpoint, JWT validation, and message dispatch.
 - **Game REST Routes** (`backend/app/api/routes/games.py`): State-changing endpoints (join, start, develop, actions, end-actions, next-round) broadcast game events via `BackgroundTasks` after committing database changes. The end-actions endpoint triggers auto phase transitions when all players complete.
