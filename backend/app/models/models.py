@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text, CheckConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -52,6 +52,7 @@ class Game(Base):
     creator = relationship("Player", back_populates="created_games")
     spawned_countries = relationship("SpawnedCountry", back_populates="game")
     game_history = relationship("GameHistory", back_populates="game")
+    game_result = relationship("GameResult", back_populates="game", uselist=False)
 
 
 class SpawnedCountry(Base):
@@ -101,3 +102,63 @@ class GameHistory(Base):
     # Relationships
     game = relationship("Game", back_populates="game_history")
     spawned_country = relationship("SpawnedCountry", back_populates="history")
+
+
+class Trade(Base):
+    __tablename__ = "trades"
+
+    id = Column(Integer, primary_key=True, index=True)
+    game_id = Column(Integer, ForeignKey("games.id"), nullable=False)
+    proposer_country_id = Column(
+        Integer, ForeignKey("spawned_countries.id"), nullable=False
+    )
+    receiver_country_id = Column(
+        Integer, ForeignKey("spawned_countries.id"), nullable=False
+    )
+
+    # Offered resources
+    offer_gold = Column(Integer, nullable=False, default=0)
+    offer_people = Column(Integer, nullable=False, default=0)
+    offer_territory = Column(Integer, nullable=False, default=0)
+
+    # Requested resources
+    request_gold = Column(Integer, nullable=False, default=0)
+    request_people = Column(Integer, nullable=False, default=0)
+    request_territory = Column(Integer, nullable=False, default=0)
+
+    # Status: pending, accepted, rejected, cancelled
+    status = Column(String(20), nullable=False, default="pending")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint(
+            "proposer_country_id != receiver_country_id",
+            name="no_self_trade",
+        ),
+    )
+
+    # Relationships
+    game = relationship("Game", backref="trades")
+    proposer_country = relationship(
+        "SpawnedCountry", foreign_keys=[proposer_country_id]
+    )
+    receiver_country = relationship(
+        "SpawnedCountry", foreign_keys=[receiver_country_id]
+    )
+
+
+class GameResult(Base):
+    __tablename__ = "game_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    game_id = Column(Integer, ForeignKey("games.id"), nullable=False, unique=True)
+    winner_country_id = Column(Integer, ForeignKey("spawned_countries.id"), nullable=False)
+    winner_player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    duration_rounds = Column(Integer, nullable=False)
+    finished_at = Column(DateTime(timezone=True), server_default=func.now())
+    final_rankings = Column(Text, nullable=False)  # JSON string
+
+    # Relationships
+    game = relationship("Game", back_populates="game_result")
+    winner_country = relationship("SpawnedCountry")
+    winner_player = relationship("Player")
