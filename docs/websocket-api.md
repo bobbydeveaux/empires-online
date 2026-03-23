@@ -1,14 +1,22 @@
 # WebSocket API
 
-## Endpoint
+## Endpoints
+
+### Player endpoint
 
 ```
 WS /ws/{game_id}?token=<jwt>
 ```
 
+### Spectator endpoint
+
+```
+WS /ws/{game_id}/spectate?token=<jwt>
+```
+
 ## Authentication
 
-The WebSocket endpoint requires a valid JWT token. Provide it via:
+Both endpoints require a valid JWT token. Provide it via:
 
 1. **Query parameter** (recommended): `/ws/1?token=eyJhbGci...`
 2. **Authorization header**: `Authorization: Bearer eyJhbGci...`
@@ -17,6 +25,7 @@ Invalid or missing tokens result in a close with code `1008` (Policy Violation).
 
 ## Connection Flow
 
+### Player connection
 1. Client connects with a valid JWT token
 2. Server validates the token and looks up the player
 3. Connection is accepted and added to the game room
@@ -24,14 +33,23 @@ Invalid or missing tokens result in a close with code `1008` (Policy Violation).
 5. Client can send/receive messages
 6. On disconnect, a `player_left` message is broadcast
 
+### Spectator connection
+1. Client connects with a valid JWT token to the `/spectate` endpoint
+2. Server validates the token and looks up the user
+3. Connection is accepted and added to the game room as a spectator
+4. A `spectator_joined` message (with `spectator_count`) is broadcast to the room
+5. Spectator receives all game state broadcasts
+6. Only `ping` messages are allowed from spectators; all other messages are rejected with a `403` error
+7. On disconnect, a `spectator_left` message (with `spectator_count`) is broadcast
+
 ## Message Types
 
 ### Client → Server
 
 | Type | Payload | Description |
 |------|---------|-------------|
-| `ping` | `{}` | Health check; server responds with `pong` |
-| `chat` | `{"message": "text"}` | Send a chat message to the game room |
+| `ping` | `{}` | Health check; server responds with `pong` (allowed for both players and spectators) |
+| `chat` | `{"message": "text"}` | Send a chat message to the game room (players only; rejected with 403 for spectators) |
 
 ### Server → Client
 
@@ -41,9 +59,11 @@ Invalid or missing tokens result in a close with code `1008` (Policy Violation).
 |------|---------|-------------|
 | `player_joined` | `{"game_id", "player": {"id", "username"}}` | A player connected to the WebSocket room |
 | `player_left` | `{"game_id", "player": {"id", "username"}}` | A player disconnected from the WebSocket room |
+| `spectator_joined` | `{"game_id", "spectator_count"}` | A spectator connected to the game room |
+| `spectator_left` | `{"game_id", "spectator_count"}` | A spectator disconnected from the game room |
 | `pong` | `{}` | Response to a `ping` |
 | `chat` | `{"game_id", "player": {"id", "username"}, "message"}` | Chat message broadcast |
-| `error` | `{"message": "..."}` | Error response for unknown message types |
+| `error` | `{"message": "...", "code?": number}` | Error response; `code: 403` for spectator action rejections |
 
 #### Game State Events
 
@@ -71,6 +91,7 @@ These messages are broadcast from REST endpoints when game state changes occur, 
 
 ## Example (JavaScript)
 
+### Player connection
 ```javascript
 const token = "eyJhbGci..."; // JWT from /api/auth/token
 // Via Nginx proxy (recommended)
@@ -86,6 +107,21 @@ ws.onmessage = (event) => {
 ws.onopen = () => {
   // Send a chat message
   ws.send(JSON.stringify({ type: "chat", message: "Hello!" }));
+};
+```
+
+### Spectator connection
+```javascript
+const token = "eyJhbGci..."; // JWT from /api/auth/token
+const ws = new WebSocket(`ws://localhost:3000/ws/1/spectate?token=${token}`);
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  if (data.type === "error" && data.code === 403) {
+    console.warn("Action rejected:", data.message);
+  } else {
+    console.log("Game update:", data);
+  }
 };
 ```
 
@@ -183,9 +219,9 @@ The spectator token is a standard JWT with an additional `is_spectator: true` cl
 
 ## Architecture
 
-- **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms with connect, disconnect, join_room, leave_room, and broadcast_to_room operations. Includes PostgreSQL NOTIFY/LISTEN support for cross-process event fanout.
+- **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms, with separate tracking for players and spectators. Supports connect, disconnect, join_room, join_room_as_spectator, leave_room, broadcast_to_room (reaches both players and spectators), and spectator_count tracking. Includes PostgreSQL NOTIFY/LISTEN support for cross-process event fanout.
 - **GameBroadcast** (`backend/app/services/game_broadcast.py`): Provides message builders for each game event type (including `game_state_update` with full game state) and an async `broadcast_event()` function used as a FastAPI `BackgroundTask`.
-- **WebSocket Route** (`backend/app/api/routes/ws.py`): Handles the `/ws/{game_id}` endpoint, JWT validation, and message dispatch.
+- **WebSocket Route** (`backend/app/api/routes/ws.py`): Handles the `/ws/{game_id}` player endpoint and `/ws/{game_id}/spectate` spectator endpoint. Both require JWT validation. Spectators can only send `ping`; all other messages are rejected with a 403 error.
 - **Game REST Routes** (`backend/app/api/routes/games.py`): State-changing endpoints (join, start, develop, actions, end-actions, next-round) broadcast game events via `BackgroundTasks` after committing database changes. The end-actions endpoint triggers auto phase transitions when all players complete.
 - **useGameWebSocket** (`frontend/src/hooks/useGameWebSocket.ts`): React hook that manages WebSocket lifecycle, reconnection, and state synchronization.
 - **WebSocket Types** (`frontend/src/types/index.ts`): TypeScript discriminated union types for all WebSocket messages (`WsServerMessage`).
