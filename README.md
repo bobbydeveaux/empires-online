@@ -142,13 +142,20 @@ Instability Penalty = If revolters > supporters, multiply total by 0.5
 - `GET /api/games/{id}/round-summary` - Get per-player round summary
 - `GET /api/games/{id}/leaderboard` - Get current standings
 
+### Trades
+- `POST /api/games/{id}/trades` - Propose a trade
+- `POST /api/games/{id}/trades/{trade_id}/accept` - Accept a trade
+- `POST /api/games/{id}/trades/{trade_id}/reject` - Reject a trade
+- `POST /api/games/{id}/trades/{trade_id}/cancel` - Cancel a trade
+- `GET /api/games/{id}/trades` - List pending trades
+
 ### Players
 - `GET /api/players/countries` - List available countries
 - `GET /api/players/me` - Get current player info
 
 ### WebSocket
 - `WS /ws/{game_id}?token=<jwt>` - Real-time game updates (JWT required via query param or Authorization header)
-- Game state changes (join, start, development, actions, round advance, game completion) are broadcast to all connected clients in real-time
+- Game state changes (join, start, development, actions, round advance, game completion, trades) are broadcast to all connected clients in real-time
 - See [docs/websocket-api.md](docs/websocket-api.md) for full message type reference
 
 ## Testing
