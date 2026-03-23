@@ -166,6 +166,61 @@ export interface WsErrorMessage {
   message: string;
 }
 
+// WebSocket connection status
+export type WsConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
+
+// Trade types
+export type TradeStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled';
+
+export interface TradeResource {
+  gold: number;
+  people: number;
+  territory: number;
+}
+
+export interface TradeOffer {
+  id: number;
+  game_id: number;
+  proposer_country_id: number;
+  receiver_country_id: number;
+  offer_gold: number;
+  offer_people: number;
+  offer_territory: number;
+  request_gold: number;
+  request_people: number;
+  request_territory: number;
+  status: TradeStatus;
+  created_at: string;
+  proposer_name?: string;
+  receiver_name?: string;
+  proposer_country_name?: string;
+  receiver_country_name?: string;
+}
+
+export interface TradePropose {
+  receiver_country_id: number;
+  offer_gold: number;
+  offer_people: number;
+  offer_territory: number;
+  request_gold: number;
+  request_people: number;
+  request_territory: number;
+}
+
+// Trade WebSocket messages
+export interface WsTradeProposedMessage {
+  type: 'trade_proposed';
+  game_id: number;
+  trade: TradeOffer;
+}
+
+export interface WsTradeResolvedMessage {
+  type: 'trade_resolved';
+  game_id: number;
+  trade: TradeOffer;
+  resolution: 'accepted' | 'rejected' | 'cancelled';
+}
+
 export type WsServerMessage =
   | WsPlayerJoinedMessage
   | WsPlayerLeftMessage
@@ -173,7 +228,6 @@ export type WsServerMessage =
   | WsRoundChangedMessage
   | WsChatInMessage
   | WsPongMessage
-  | WsErrorMessage;
-
-// WebSocket connection status
-export type WsConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
+  | WsErrorMessage
+  | WsTradeProposedMessage
+  | WsTradeResolvedMessage;

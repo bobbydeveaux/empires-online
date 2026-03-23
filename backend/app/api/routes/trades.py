@@ -12,8 +12,7 @@ from app.services.trade_service import TradeService
 from app.services.game_broadcast import (
     broadcast_event,
     trade_proposed_message,
-    trade_accepted_message,
-    trade_rejected_message,
+    trade_resolved_message,
 )
 
 router = APIRouter()
@@ -64,15 +63,23 @@ def propose_trade(
         },
     )
 
+    trade_dict = {
+        "id": trade.id,
+        "game_id": trade.game_id,
+        "proposer_country_id": trade.proposer_country_id,
+        "receiver_country_id": trade.receiver_country_id,
+        "offer_gold": trade.offer_gold,
+        "offer_people": trade.offer_people,
+        "offer_territory": trade.offer_territory,
+        "request_gold": trade.request_gold,
+        "request_people": trade.request_people,
+        "request_territory": trade.request_territory,
+        "status": trade.status,
+    }
     background_tasks.add_task(
         broadcast_event,
         game_id,
-        trade_proposed_message(
-            game_id=game_id,
-            trade_id=trade.id,
-            proposer_id=trade.proposer_country_id,
-            receiver_id=trade.receiver_country_id,
-        ),
+        trade_proposed_message(game_id=game_id, trade=trade_dict),
     )
 
     return trade
@@ -95,15 +102,23 @@ def accept_trade(
         current_user_country_id=receiver.id,
     )
 
+    trade_dict = {
+        "id": trade.id,
+        "game_id": trade.game_id,
+        "proposer_country_id": trade.proposer_country_id,
+        "receiver_country_id": trade.receiver_country_id,
+        "offer_gold": trade.offer_gold,
+        "offer_people": trade.offer_people,
+        "offer_territory": trade.offer_territory,
+        "request_gold": trade.request_gold,
+        "request_people": trade.request_people,
+        "request_territory": trade.request_territory,
+        "status": trade.status,
+    }
     background_tasks.add_task(
         broadcast_event,
         game_id,
-        trade_accepted_message(
-            game_id=game_id,
-            trade_id=trade.id,
-            proposer_id=trade.proposer_country_id,
-            receiver_id=trade.receiver_country_id,
-        ),
+        trade_resolved_message(game_id=game_id, trade=trade_dict, resolution="accepted"),
     )
 
     return trade
@@ -126,15 +141,23 @@ def reject_trade(
         current_user_country_id=receiver.id,
     )
 
+    trade_dict = {
+        "id": trade.id,
+        "game_id": trade.game_id,
+        "proposer_country_id": trade.proposer_country_id,
+        "receiver_country_id": trade.receiver_country_id,
+        "offer_gold": trade.offer_gold,
+        "offer_people": trade.offer_people,
+        "offer_territory": trade.offer_territory,
+        "request_gold": trade.request_gold,
+        "request_people": trade.request_people,
+        "request_territory": trade.request_territory,
+        "status": trade.status,
+    }
     background_tasks.add_task(
         broadcast_event,
         game_id,
-        trade_rejected_message(
-            game_id=game_id,
-            trade_id=trade.id,
-            proposer_id=trade.proposer_country_id,
-            receiver_id=trade.receiver_country_id,
-        ),
+        trade_resolved_message(game_id=game_id, trade=trade_dict, resolution="rejected"),
     )
 
     return trade

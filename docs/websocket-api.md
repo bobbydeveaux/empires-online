@@ -87,9 +87,8 @@ These messages are broadcast from REST endpoints when game state changes occur, 
 
 | Type | Payload | Description |
 |------|---------|-------------|
-| `trade_proposed` | `{"game_id", "trade_id", "proposer_country_id", "receiver_country_id"}` | A new trade was proposed |
-| `trade_accepted` | `{"game_id", "trade_id", "proposer_country_id", "receiver_country_id"}` | A trade was accepted; resources have been transferred |
-| `trade_rejected` | `{"game_id", "trade_id", "proposer_country_id", "receiver_country_id"}` | A trade was rejected |
+| `trade_proposed` | `{"game_id", "trade": TradeOffer}` | A new trade offer was proposed |
+| `trade_resolved` | `{"game_id", "trade": TradeOffer, "resolution": "accepted"\|"rejected"\|"cancelled"}` | A trade was accepted, rejected, or cancelled |
 
 #### Reserved / Future Server → Client
 
@@ -140,7 +139,7 @@ ws.onmessage = (event) => {
 All WebSocket message types are defined in `frontend/src/types/index.ts` as a discriminated union on the `type` field:
 
 - **`WsClientMessage`** — union of messages the client can send (`ping`, `chat`)
-- **`WsServerMessage`** — union of messages the server can send (`player_joined`, `player_left`, `pong`, `chat`, `error`, `game_state_update`, `round_changed`)
+- **`WsServerMessage`** — union of messages the server can send (`player_joined`, `player_left`, `pong`, `chat`, `error`, `game_state_update`, `round_changed`, `trade_proposed`, `trade_resolved`)
 
 ### `useGameWebSocket` Hook
 
@@ -149,7 +148,7 @@ The `useGameWebSocket` hook (`frontend/src/hooks/useGameWebSocket.ts`) provides 
 ```typescript
 import { useGameWebSocket } from '../hooks/useGameWebSocket';
 
-const { gameState, connectionStatus, reconnect, refreshGameState } = useGameWebSocket({
+const { gameState, connectionStatus, reconnect, refreshGameState, trades, refreshTrades } = useGameWebSocket({
   gameId: 1,
   token: 'jwt-token',
   onMessage: (msg) => console.log(msg),
@@ -161,12 +160,16 @@ const { gameState, connectionStatus, reconnect, refreshGameState } = useGameWebS
 - `connectionStatus` — `'connecting' | 'connected' | 'disconnected' | 'reconnecting'`
 - `reconnect()` — Manually trigger a reconnect
 - `refreshGameState()` — Manually fetch fresh state via REST
+- `trades` — Array of active `TradeOffer` objects for the current game
+- `refreshTrades()` — Manually refresh trades from REST
 
 **Behavior:**
 - Connects to `WS /ws/{gameId}?token=<jwt>` on mount
 - Fetches full game state via REST on connect and reconnect
 - On `game_state_update`, applies the included `game_state` directly (or refetches via REST if absent)
 - Refetches state when `player_joined`, `player_left`, or `round_changed` messages arrive
+- On `trade_proposed`, adds the trade to the local trades list
+- On `trade_resolved`, removes the trade from the local list and refetches game state if accepted
 - Implements exponential backoff reconnection (1s, 2s, 4s, ... up to 30s max)
 - Does not reconnect on auth failure (close code 1008)
 - Sends ping keepalive every 25 seconds

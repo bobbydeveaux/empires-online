@@ -163,48 +163,26 @@ def round_summary_message(
 
 def trade_proposed_message(
     game_id: int,
-    trade_id: int,
-    proposer_id: int,
-    receiver_id: int,
+    trade: Dict[str, Any],
 ) -> Dict[str, Any]:
     return {
         "type": "trade_proposed",
         "game_id": game_id,
-        "trade_id": trade_id,
-        "proposer_country_id": proposer_id,
-        "receiver_country_id": receiver_id,
+        "trade": trade,
     }
 
 
-def trade_accepted_message(
+def trade_resolved_message(
     game_id: int,
-    trade_id: int,
-    proposer_id: int,
-    receiver_id: int,
+    trade: Dict[str, Any],
+    resolution: str,
 ) -> Dict[str, Any]:
     return {
-        "type": "trade_accepted",
+        "type": "trade_resolved",
         "game_id": game_id,
-        "trade_id": trade_id,
-        "proposer_country_id": proposer_id,
-        "receiver_country_id": receiver_id,
+        "trade": trade,
+        "resolution": resolution,
     }
-
-
-def trade_rejected_message(
-    game_id: int,
-    trade_id: int,
-    proposer_id: int,
-    receiver_id: int,
-) -> Dict[str, Any]:
-    return {
-        "type": "trade_rejected",
-        "game_id": game_id,
-        "trade_id": trade_id,
-        "proposer_country_id": proposer_id,
-        "receiver_country_id": receiver_id,
-    }
-
 
 
 # ---------------------------------------------------------------------------

@@ -147,6 +147,7 @@ Instability Penalty = If revolters > supporters, multiply total by 0.5
 - `POST /api/games/{id}/trades` - Propose a trade (offer/request resources)
 - `POST /api/games/{id}/trades/{trade_id}/accept` - Accept a pending trade (receiver only)
 - `POST /api/games/{id}/trades/{trade_id}/reject` - Reject a pending trade (receiver only)
+- `POST /api/games/{id}/trades/{trade_id}/cancel` - Cancel a trade
 - `GET /api/games/{id}/trades` - List pending trades for a game
 
 ### Players
