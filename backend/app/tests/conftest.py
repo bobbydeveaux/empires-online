@@ -9,6 +9,7 @@ from datetime import timedelta
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 
 from app.core.database import Base, get_db
@@ -24,7 +25,11 @@ from app.api.routes.auth import get_current_user, create_access_token, get_passw
 @pytest.fixture()
 def db_engine():
     """Create an in-memory SQLite engine with FK support."""
-    engine = create_engine("sqlite:///:memory:")
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     # Enable foreign-key enforcement for SQLite
     @event.listens_for(engine, "connect")
     def _set_sqlite_pragma(dbapi_conn, connection_record):

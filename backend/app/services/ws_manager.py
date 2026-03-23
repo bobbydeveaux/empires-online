@@ -31,8 +31,9 @@ def _parse_dsn(database_url: str) -> str:
 class ConnectionManager:
     """Manages WebSocket connections organized by game rooms.
 
-    Each game_id maps to a set of active WebSocket connections.
-    Supports connect, disconnect, join_room, leave_room, and broadcast_to_room.
+    Each game_id maps to a set of active player WebSocket connections and
+    a separate set of spectator connections.  Spectators receive all
+    broadcasts but cannot send action messages.
 
     Optionally subscribes to a PostgreSQL NOTIFY channel so that events
     published from any backend process are fanned out to local WebSocket
@@ -40,10 +41,14 @@ class ConnectionManager:
     """
 
     def __init__(self) -> None:
-        # game_id -> set of WebSocket connections
+        # game_id -> set of player WebSocket connections
         self._rooms: Dict[int, Set[WebSocket]] = {}
+        # game_id -> set of spectator WebSocket connections
+        self._spectators: Dict[int, Set[WebSocket]] = {}
         # websocket -> game_id (reverse lookup for cleanup)
         self._connection_rooms: Dict[WebSocket, int] = {}
+        # websocket -> True if this connection is a spectator
+        self._is_spectator: Dict[WebSocket, bool] = {}
         # asyncpg connection used for LISTEN
         self._listen_conn: Optional[asyncpg.Connection] = None
         # asyncpg pool used for NOTIFY
@@ -61,35 +66,74 @@ class ConnectionManager:
         self.join_room(websocket, game_id)
         logger.info("WebSocket connected to game room %d", game_id)
 
+    async def connect_spectator(self, websocket: WebSocket, game_id: int) -> None:
+        """Accept a spectator WebSocket connection and add it to the game room."""
+        await websocket.accept()
+        self.join_room_as_spectator(websocket, game_id)
+        logger.info("Spectator WebSocket connected to game room %d", game_id)
+
     def join_room(self, websocket: WebSocket, game_id: int) -> None:
-        """Add a connection to a game room."""
+        """Add a connection to a game room as a player."""
         if game_id not in self._rooms:
             self._rooms[game_id] = set()
         self._rooms[game_id].add(websocket)
         self._connection_rooms[websocket] = game_id
+        self._is_spectator[websocket] = False
+
+    def join_room_as_spectator(self, websocket: WebSocket, game_id: int) -> None:
+        """Add a connection to a game room as a spectator."""
+        if game_id not in self._spectators:
+            self._spectators[game_id] = set()
+        self._spectators[game_id].add(websocket)
+        self._connection_rooms[websocket] = game_id
+        self._is_spectator[websocket] = True
 
     def leave_room(self, websocket: WebSocket) -> None:
         """Remove a connection from its current room."""
         game_id = self._connection_rooms.pop(websocket, None)
-        if game_id is not None and game_id in self._rooms:
-            self._rooms[game_id].discard(websocket)
-            if not self._rooms[game_id]:
-                del self._rooms[game_id]
+        is_spectator = self._is_spectator.pop(websocket, False)
+        if game_id is None:
+            return
+        if is_spectator:
+            if game_id in self._spectators:
+                self._spectators[game_id].discard(websocket)
+                if not self._spectators[game_id]:
+                    del self._spectators[game_id]
+        else:
+            if game_id in self._rooms:
+                self._rooms[game_id].discard(websocket)
+                if not self._rooms[game_id]:
+                    del self._rooms[game_id]
 
     def disconnect(self, websocket: WebSocket) -> None:
         """Remove a connection from all tracking structures."""
         self.leave_room(websocket)
         logger.info("WebSocket disconnected")
 
+    def disconnect_spectator(self, websocket: WebSocket) -> None:
+        """Remove a spectator from all tracking structures."""
+        self.leave_room(websocket)
+        logger.info("Spectator disconnected")
+
+    def is_spectator(self, websocket: WebSocket) -> bool:
+        """Return True if the given connection is a spectator."""
+        return self._is_spectator.get(websocket, False)
+
+    def get_spectator_count(self, game_id: int) -> int:
+        """Return the number of spectators in a game room."""
+        return len(self._spectators.get(game_id, set()))
+
     # ------------------------------------------------------------------ #
     #  Messaging                                                           #
     # ------------------------------------------------------------------ #
 
     async def broadcast_to_room(self, game_id: int, message: Dict[str, Any]) -> None:
-        """Send a JSON message to all connections in a game room."""
+        """Send a JSON message to all connections (players and spectators) in a game room."""
         connections = self._rooms.get(game_id, set()).copy()
+        spectators = self._spectators.get(game_id, set()).copy()
+        all_connections = connections | spectators
         payload = json.dumps(message)
-        for websocket in connections:
+        for websocket in all_connections:
             try:
                 await websocket.send_text(payload)
             except Exception:
@@ -101,12 +145,23 @@ class ConnectionManager:
         await websocket.send_text(json.dumps(message))
 
     def get_room_count(self, game_id: int) -> int:
-        """Return the number of connections in a game room."""
+        """Return the number of player connections in a game room."""
         return len(self._rooms.get(game_id, set()))
 
     def get_rooms(self) -> Dict[int, int]:
-        """Return a dict of game_id -> connection count."""
+        """Return a dict of game_id -> player connection count."""
         return {gid: len(conns) for gid, conns in self._rooms.items()}
+
+    def get_rooms_with_spectators(self) -> Dict[int, Dict[str, int]]:
+        """Return a dict of game_id -> {players: count, spectators: count}."""
+        all_ids = set(self._rooms.keys()) | set(self._spectators.keys())
+        return {
+            gid: {
+                "players": len(self._rooms.get(gid, set())),
+                "spectators": len(self._spectators.get(gid, set())),
+            }
+            for gid in all_ids
+        }
 
     # ------------------------------------------------------------------ #
     #  PostgreSQL NOTIFY helper                                            #

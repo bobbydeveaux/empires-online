@@ -240,6 +240,134 @@ class TestOnNotification:
         ws.send_text.assert_not_awaited()
 
 
+class TestSpectatorConnections:
+    """Tests for spectator add/remove, broadcast, and action rejection."""
+
+    @pytest.mark.asyncio
+    async def test_connect_spectator_adds_to_spectators_set(self, manager):
+        ws = _make_ws()
+        await manager.connect_spectator(ws, game_id=1)
+
+        ws.accept.assert_awaited_once()
+        assert manager.get_spectator_count(1) == 1
+        assert manager.is_spectator(ws)
+
+    @pytest.mark.asyncio
+    async def test_disconnect_spectator_removes_from_set(self, manager):
+        ws = _make_ws()
+        await manager.connect_spectator(ws, game_id=1)
+        manager.disconnect_spectator(ws)
+
+        assert manager.get_spectator_count(1) == 0
+        assert not manager.is_spectator(ws)
+
+    @pytest.mark.asyncio
+    async def test_spectator_not_counted_as_player(self, manager):
+        ws_player = _make_ws()
+        ws_spectator = _make_ws()
+
+        await manager.connect(ws_player, game_id=1)
+        await manager.connect_spectator(ws_spectator, game_id=1)
+
+        assert manager.get_room_count(1) == 1  # only player
+        assert manager.get_spectator_count(1) == 1
+
+    @pytest.mark.asyncio
+    async def test_broadcast_reaches_spectators(self, manager):
+        ws_player = _make_ws()
+        ws_spectator = _make_ws()
+
+        await manager.connect(ws_player, game_id=1)
+        await manager.connect_spectator(ws_spectator, game_id=1)
+
+        message = {"type": "game_state_update", "game_id": 1}
+        await manager.broadcast_to_room(1, message)
+
+        payload = json.dumps(message)
+        ws_player.send_text.assert_awaited_once_with(payload)
+        ws_spectator.send_text.assert_awaited_once_with(payload)
+
+    @pytest.mark.asyncio
+    async def test_broadcast_to_different_room_not_received_by_spectator(self, manager):
+        ws_spectator = _make_ws()
+        await manager.connect_spectator(ws_spectator, game_id=1)
+
+        await manager.broadcast_to_room(2, {"type": "test"})
+
+        ws_spectator.send_text.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_multiple_spectators_same_room(self, manager):
+        ws1 = _make_ws()
+        ws2 = _make_ws()
+
+        await manager.connect_spectator(ws1, game_id=1)
+        await manager.connect_spectator(ws2, game_id=1)
+
+        assert manager.get_spectator_count(1) == 2
+
+    @pytest.mark.asyncio
+    async def test_disconnect_spectator_cleans_up_empty_room(self, manager):
+        ws = _make_ws()
+        await manager.connect_spectator(ws, game_id=5)
+        manager.disconnect_spectator(ws)
+
+        assert 5 not in manager._spectators
+
+    @pytest.mark.asyncio
+    async def test_disconnect_spectator_idempotent(self, manager):
+        ws = _make_ws()
+        manager.disconnect_spectator(ws)  # should not raise
+        assert manager.get_spectator_count(1) == 0
+
+    @pytest.mark.asyncio
+    async def test_is_spectator_false_for_player(self, manager):
+        ws = _make_ws()
+        await manager.connect(ws, game_id=1)
+        assert not manager.is_spectator(ws)
+
+    @pytest.mark.asyncio
+    async def test_failed_spectator_send_disconnects(self, manager):
+        """If a spectator connection fails during broadcast, it is cleaned up."""
+        ws_good = _make_ws()
+        ws_bad = _make_ws()
+        ws_bad.send_text.side_effect = Exception("connection lost")
+
+        await manager.connect_spectator(ws_good, game_id=1)
+        await manager.connect_spectator(ws_bad, game_id=1)
+
+        await manager.broadcast_to_room(1, {"type": "test"})
+
+        ws_good.send_text.assert_awaited_once()
+        assert manager.get_spectator_count(1) == 1
+
+    @pytest.mark.asyncio
+    async def test_get_spectator_count_zero_for_no_spectators(self, manager):
+        assert manager.get_spectator_count(999) == 0
+
+    @pytest.mark.asyncio
+    async def test_disconnect_removes_spectator_via_general_disconnect(self, manager):
+        """The general disconnect() method also cleans up spectator tracking."""
+        ws = _make_ws()
+        await manager.connect_spectator(ws, game_id=1)
+
+        # Using the general disconnect should also clean spectators
+        manager.disconnect(ws)
+        assert manager.get_spectator_count(1) == 0
+        assert not manager.is_spectator(ws)
+
+    @pytest.mark.asyncio
+    async def test_get_rooms_with_spectators(self, manager):
+        ws_player = _make_ws()
+        ws_spectator = _make_ws()
+
+        await manager.connect(ws_player, game_id=1)
+        await manager.connect_spectator(ws_spectator, game_id=1)
+
+        rooms = manager.get_rooms_with_spectators()
+        assert rooms == {1: {"players": 1, "spectators": 1}}
+
+
 class TestParseDsn:
     """Tests for DSN parsing utility."""
 

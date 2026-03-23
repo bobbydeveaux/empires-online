@@ -1,7 +1,9 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 import json
+from typing import Any, Dict, List
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.models import Player, Country, GameResult, SpawnedCountry, Game
@@ -15,51 +17,6 @@ from app.schemas.schemas import (
 from app.api.routes.auth import get_current_user
 
 router = APIRouter()
-
-
-# ---------------------------------------------------------------------------
-# Helper functions
-# ---------------------------------------------------------------------------
-
-def _compute_player_stats(db: Session, player_id: int) -> tuple:
-    """Return (total_games, wins) for a player."""
-    total_games = (
-        db.query(GameResult)
-        .join(Game, Game.id == GameResult.game_id)
-        .join(SpawnedCountry, SpawnedCountry.game_id == Game.id)
-        .filter(SpawnedCountry.player_id == player_id)
-        .count()
-    )
-
-    wins = (
-        db.query(GameResult)
-        .filter(GameResult.winner_player_id == player_id)
-        .count()
-    )
-
-    return total_games, wins
-
-
-def _compute_avg_placement(db: Session, player_id: int) -> float:
-    """Compute the average placement across all completed games for a player."""
-    results = (
-        db.query(GameResult)
-        .join(Game, Game.id == GameResult.game_id)
-        .join(SpawnedCountry, SpawnedCountry.game_id == Game.id)
-        .filter(SpawnedCountry.player_id == player_id)
-        .all()
-    )
-
-    placements = []
-    for result in results:
-        rankings = json.loads(result.final_rankings) if result.final_rankings else []
-        player_ranking = next(
-            (r for r in rankings if r["player_id"] == player_id), None
-        )
-        if player_ranking:
-            placements.append(player_ranking["rank"])
-
-    return sum(placements) / len(placements) if placements else 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -78,45 +35,45 @@ def list_countries(db: Session = Depends(get_db)):
     return db.query(Country).all()
 
 
-@router.get("/leaderboard/global", response_model=List[GlobalLeaderboardEntry])
-def get_global_leaderboard(db: Session = Depends(get_db)):
-    """Get the global leaderboard with all-time win counts, win rates, and average placement."""
-    player_ids = (
-        db.query(SpawnedCountry.player_id)
-        .join(Game, Game.id == SpawnedCountry.game_id)
-        .filter(Game.phase == "completed")
-        .distinct()
-        .all()
-    )
+@router.get("/leaderboard")
+def get_global_leaderboard(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
+    """Get global leaderboard ranked by win count (minimum 1 completed game)."""
+    players = db.query(Player).all()
+    leaderboard: List[Dict[str, Any]] = []
 
-    entries = []
-    for (pid,) in player_ids:
-        player = db.query(Player).filter(Player.id == pid).first()
-        if not player:
-            continue
-
-        total_games, wins = _compute_player_stats(db, pid)
-        if total_games == 0:
-            continue
-
-        losses = total_games - wins
-        win_rate = (wins / total_games * 100) if total_games > 0 else 0.0
-        avg_placement = _compute_avg_placement(db, pid)
-
-        entries.append(
-            GlobalLeaderboardEntry(
-                player_id=pid,
-                username=player.username,
-                total_games=total_games,
-                wins=wins,
-                losses=losses,
-                win_rate=round(win_rate, 1),
-                avg_placement=round(avg_placement, 2),
+    for player in players:
+        games_played = (
+            db.query(func.count(SpawnedCountry.id))
+            .join(Game, SpawnedCountry.game_id == Game.id)
+            .filter(
+                SpawnedCountry.player_id == player.id,
+                Game.phase == "completed",
             )
-        )
+            .scalar()
+        ) or 0
 
-    entries.sort(key=lambda e: (e.wins, e.win_rate), reverse=True)
-    return entries
+        if games_played == 0:
+            continue
+
+        wins = (
+            db.query(func.count(GameResult.id))
+            .filter(GameResult.winner_player_id == player.id)
+            .scalar()
+        ) or 0
+
+        win_rate = round((wins / games_played) * 100, 1) if games_played > 0 else 0.0
+
+        leaderboard.append({
+            "player_id": player.id,
+            "username": player.username,
+            "games_played": games_played,
+            "wins": wins,
+            "losses": games_played - wins,
+            "win_rate": win_rate,
+        })
+
+    leaderboard.sort(key=lambda x: (-x["wins"], -x["win_rate"], x["username"]))
+    return leaderboard
 
 
 @router.get("/", response_model=List[PlayerSchema])
@@ -169,23 +126,68 @@ def get_player_history(player_id: int, db: Session = Depends(get_db)):
     return history
 
 
-@router.get("/{player_id}/stats", response_model=PlayerStats)
-def get_player_stats(player_id: int, db: Session = Depends(get_db)):
-    """Get aggregated stats for a player."""
+@router.get("/{player_id}/stats")
+def get_player_stats(player_id: int, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Get stats and game history for a specific player."""
     player = db.query(Player).filter(Player.id == player_id).first()
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
 
-    total_games, wins = _compute_player_stats(db, player_id)
-    losses = total_games - wins
-    win_rate = (wins / total_games * 100) if total_games > 0 else 0.0
+    # Count completed games
+    games_played = (
+        db.query(func.count(SpawnedCountry.id))
+        .join(Game, SpawnedCountry.game_id == Game.id)
+        .filter(
+            SpawnedCountry.player_id == player_id,
+            Game.phase == "completed",
+        )
+        .scalar()
+    ) or 0
 
-    return PlayerStats(
-        id=player.id,
-        username=player.username,
-        email=player.email,
-        total_games=total_games,
-        wins=wins,
-        losses=losses,
-        win_rate=round(win_rate, 1),
+    wins = (
+        db.query(func.count(GameResult.id))
+        .filter(GameResult.winner_player_id == player_id)
+        .scalar()
+    ) or 0
+
+    win_rate = round((wins / games_played) * 100, 1) if games_played > 0 else 0.0
+
+    # Get recent game history
+    game_results = (
+        db.query(GameResult, Game, SpawnedCountry, Country)
+        .join(Game, GameResult.game_id == Game.id)
+        .join(SpawnedCountry, (SpawnedCountry.game_id == Game.id) & (SpawnedCountry.player_id == player_id))
+        .join(Country, SpawnedCountry.country_id == Country.id)
+        .order_by(GameResult.finished_at.desc())
+        .limit(20)
+        .all()
     )
+
+    history: List[Dict[str, Any]] = []
+    for result, game, sc, country in game_results:
+        # Parse final_rankings to find this player's placement
+        rankings = json.loads(result.final_rankings) if result.final_rankings else []
+        placement = None
+        for rank_entry in rankings:
+            if rank_entry.get("player_id") == player_id:
+                placement = rank_entry.get("rank")
+                break
+
+        history.append({
+            "game_id": game.id,
+            "country_name": country.name,
+            "rounds": game.rounds,
+            "placement": placement,
+            "won": result.winner_player_id == player_id,
+            "finished_at": result.finished_at.isoformat() if result.finished_at else None,
+        })
+
+    return {
+        "player_id": player.id,
+        "username": player.username,
+        "games_played": games_played,
+        "wins": wins,
+        "losses": games_played - wins,
+        "win_rate": win_rate,
+        "history": history,
+    }

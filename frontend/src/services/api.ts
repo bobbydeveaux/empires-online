@@ -8,7 +8,12 @@ import {
   ActionResult,
   GameAction,
   LeaderboardEntry,
-  AuthToken
+  AuthToken,
+  SpectateTokenResponse,
+  PlayerStatsData,
+  GlobalLeaderboardEntry,
+  TradeOffer,
+  TradePropose,
 } from '../types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
@@ -75,6 +80,16 @@ export const playersAPI = {
   getCurrentPlayer: async (): Promise<Player> => {
     const response = await api.get('/players/me');
     return response.data;
+  },
+
+  getPlayerStats: async (playerId: number): Promise<PlayerStatsData> => {
+    const response = await api.get(`/players/${playerId}/stats`);
+    return response.data;
+  },
+
+  getGlobalLeaderboard: async (): Promise<GlobalLeaderboardEntry[]> => {
+    const response = await api.get('/players/leaderboard');
+    return response.data;
   }
 };
 
@@ -122,6 +137,65 @@ export const gamesAPI = {
 
   getLeaderboard: async (gameId: number): Promise<LeaderboardEntry[]> => {
     const response = await api.get(`/games/${gameId}/leaderboard`);
+    return response.data;
+  },
+
+  // Trade endpoints
+  listTrades: async (gameId: number): Promise<TradeOffer[]> => {
+    const response = await api.get(`/games/${gameId}/trades`);
+    return response.data;
+  },
+
+  proposeTrade: async (gameId: number, trade: TradePropose): Promise<TradeOffer> => {
+    const response = await api.post(`/games/${gameId}/trades`, trade);
+    return response.data;
+  },
+
+  acceptTrade: async (gameId: number, tradeId: number): Promise<TradeOffer> => {
+    const response = await api.post(`/games/${gameId}/trades/${tradeId}/accept`);
+    return response.data;
+  },
+
+  rejectTrade: async (gameId: number, tradeId: number): Promise<TradeOffer> => {
+    const response = await api.post(`/games/${gameId}/trades/${tradeId}/reject`);
+    return response.data;
+  },
+
+  cancelTrade: async (gameId: number, tradeId: number): Promise<TradeOffer> => {
+    const response = await api.post(`/games/${gameId}/trades/${tradeId}/cancel`);
+    return response.data;
+  },
+
+  spectateGame: async (gameId: number): Promise<SpectateTokenResponse> => {
+    const response = await api.post(`/games/${gameId}/spectate`);
+    return response.data;
+  }
+};
+
+// Trades API
+export const tradesAPI = {
+  proposeTrade: async (gameId: number, trade: TradePropose): Promise<TradeOffer> => {
+    const response = await api.post(`/games/${gameId}/trades`, trade);
+    return response.data;
+  },
+
+  listTrades: async (gameId: number): Promise<TradeOffer[]> => {
+    const response = await api.get(`/games/${gameId}/trades`);
+    return response.data;
+  },
+
+  acceptTrade: async (gameId: number, tradeId: number): Promise<TradeOffer> => {
+    const response = await api.post(`/games/${gameId}/trades/${tradeId}/accept`);
+    return response.data;
+  },
+
+  rejectTrade: async (gameId: number, tradeId: number): Promise<TradeOffer> => {
+    const response = await api.post(`/games/${gameId}/trades/${tradeId}/reject`);
+    return response.data;
+  },
+
+  cancelTrade: async (gameId: number, tradeId: number): Promise<TradeOffer> => {
+    const response = await api.post(`/games/${gameId}/trades/${tradeId}/cancel`);
     return response.data;
   }
 };

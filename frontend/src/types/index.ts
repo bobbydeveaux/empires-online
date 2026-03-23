@@ -54,6 +54,12 @@ export interface GameState {
   game: Game;
   players: SpawnedCountryWithDetails[];
   leaderboard: LeaderboardEntry[];
+  spectator_count?: number;
+}
+
+export interface SpectateTokenResponse {
+  spectator_token: string;
+  game_id: number;
 }
 
 export interface LeaderboardEntry {
@@ -101,6 +107,45 @@ export interface GameAction {
 export interface AuthToken {
   access_token: string;
   token_type: string;
+}
+
+// Trading types
+
+export type TradeStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled';
+
+export interface TradeResource {
+  gold: number;
+  people: number;
+  territory: number;
+}
+
+export interface TradeOffer {
+  id: number;
+  game_id: number;
+  proposer_country_id: number;
+  receiver_country_id: number;
+  offer_gold: number;
+  offer_people: number;
+  offer_territory: number;
+  request_gold: number;
+  request_people: number;
+  request_territory: number;
+  status: TradeStatus;
+  created_at: string;
+  proposer_name?: string;
+  receiver_name?: string;
+  proposer_country_name?: string;
+  receiver_country_name?: string;
+}
+
+export interface TradePropose {
+  receiver_country_id: number;
+  offer_gold: number;
+  offer_people: number;
+  offer_territory: number;
+  request_gold: number;
+  request_people: number;
+  request_territory: number;
 }
 
 // WebSocket message types
@@ -165,6 +210,20 @@ export interface WsErrorMessage {
   message: string;
 }
 
+// Trade WebSocket messages
+export interface WsTradeProposedMessage {
+  type: 'trade_proposed';
+  game_id: number;
+  trade: TradeOffer;
+}
+
+export interface WsTradeResolvedMessage {
+  type: 'trade_resolved';
+  game_id: number;
+  trade: TradeOffer;
+  resolution: 'accepted' | 'rejected' | 'cancelled';
+}
+
 export type WsServerMessage =
   | WsPlayerJoinedMessage
   | WsPlayerLeftMessage
@@ -172,7 +231,38 @@ export type WsServerMessage =
   | WsRoundChangedMessage
   | WsChatInMessage
   | WsPongMessage
-  | WsErrorMessage;
+  | WsErrorMessage
+  | WsTradeProposedMessage
+  | WsTradeResolvedMessage;
 
 // WebSocket connection status
 export type WsConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
+
+// Stats types
+export interface GameHistoryEntry {
+  game_id: number;
+  country_name: string;
+  rounds: number;
+  placement: number | null;
+  won: boolean;
+  finished_at: string | null;
+}
+
+export interface PlayerStatsData {
+  player_id: number;
+  username: string;
+  games_played: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  history: GameHistoryEntry[];
+}
+
+export interface GlobalLeaderboardEntry {
+  player_id: number;
+  username: string;
+  games_played: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+}
