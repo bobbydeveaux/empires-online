@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.core.database import get_db
 from app.api.routes.auth import get_current_user
-from app.models.models import Player, Game, SpawnedCountry
+from app.models.models import Player, Game, SpawnedCountry, GameResult
 
 
 # ---------------------------------------------------------------------------
@@ -301,6 +301,11 @@ class TestFullGameLifecycle:
         for entry in final_lb:
             assert entry["score"] >= 0
 
+        # Verify GameResult was auto-recorded
+        game_result = db_session.query(GameResult).filter(GameResult.game_id == game_id).first()
+        assert game_result is not None
+        assert game_result.duration_rounds == 2
+
     def test_cannot_join_started_game(self, mock_bc, client, seed_data):
         p1, p2 = seed_data["player1"], seed_data["player2"]
         countries = seed_data["countries"]
@@ -433,3 +438,162 @@ class TestFullGameLifecycle:
         history = db_session.query(GameHistory).filter(GameHistory.game_id == game_id).all()
         assert len(history) == 2
         assert all(h.action_type == "development" for h in history)
+
+
+# ---------------------------------------------------------------------------
+# Tests: Game result auto-recording
+# ---------------------------------------------------------------------------
+
+@patch("app.api.routes.games.broadcast_event", new_callable=AsyncMock)
+class TestGameResultAutoRecording:
+    """Verify that a GameResult row is created when a game reaches completed state."""
+
+    def test_game_result_created_on_completion(self, mock_bc, client, seed_data, db_session):
+        """When a game completes, a game_results row should be persisted."""
+        p1, p2 = seed_data["player1"], seed_data["player2"]
+        countries = seed_data["countries"]
+
+        game = _create_game(client, p1, rounds=1)
+        game_id = game["id"]
+
+        join1 = _join_game(client, game_id, p1, countries[0].id)
+        join2 = _join_game(client, game_id, p2, countries[1].id)
+        sc1_id = join1["spawned_country_id"]
+        sc2_id = join2["spawned_country_id"]
+
+        _start_game(client, game_id, p1)
+        _develop(client, game_id, sc1_id, p1)
+        _develop(client, game_id, sc2_id, p2)
+
+        # 1-round game → next-round should complete it
+        result = _next_round(client, game_id, p1)
+        assert result["phase"] == "completed"
+
+        # Verify GameResult was created
+        db_session.expire_all()
+        game_result = db_session.query(GameResult).filter(GameResult.game_id == game_id).first()
+        assert game_result is not None
+        assert game_result.game_id == game_id
+        assert game_result.duration_rounds == 1
+        assert game_result.winner_player_id is not None
+        assert game_result.winner_country_id is not None
+
+    def test_game_result_has_correct_winner(self, mock_bc, client, seed_data, db_session):
+        """The winner should be the player with the highest score."""
+        import json
+
+        p1, p2 = seed_data["player1"], seed_data["player2"]
+        countries = seed_data["countries"]
+
+        game = _create_game(client, p1, rounds=1)
+        game_id = game["id"]
+
+        join1 = _join_game(client, game_id, p1, countries[0].id)
+        join2 = _join_game(client, game_id, p2, countries[1].id)
+        sc1_id = join1["spawned_country_id"]
+        sc2_id = join2["spawned_country_id"]
+
+        _start_game(client, game_id, p1)
+        _develop(client, game_id, sc1_id, p1)
+        _develop(client, game_id, sc2_id, p2)
+
+        _next_round(client, game_id, p1)
+
+        db_session.expire_all()
+        game_result = db_session.query(GameResult).filter(GameResult.game_id == game_id).first()
+        assert game_result is not None
+
+        # Parse final_rankings
+        rankings = json.loads(game_result.final_rankings)
+        assert len(rankings) == 2
+        assert rankings[0]["placement"] == 1
+        assert rankings[1]["placement"] == 2
+        # First place should have a score >= second place
+        assert rankings[0]["score"] >= rankings[1]["score"]
+        # Winner player_id should match the first-place ranking
+        assert game_result.winner_player_id == rankings[0]["player_id"]
+
+    def test_game_result_rankings_contain_required_fields(self, mock_bc, client, seed_data, db_session):
+        """final_rankings JSON should contain placement and score for each player."""
+        import json
+
+        p1, p2 = seed_data["player1"], seed_data["player2"]
+        countries = seed_data["countries"]
+
+        game = _create_game(client, p1, rounds=1)
+        game_id = game["id"]
+
+        join1 = _join_game(client, game_id, p1, countries[0].id)
+        join2 = _join_game(client, game_id, p2, countries[1].id)
+        sc1_id = join1["spawned_country_id"]
+        sc2_id = join2["spawned_country_id"]
+
+        _start_game(client, game_id, p1)
+        _develop(client, game_id, sc1_id, p1)
+        _develop(client, game_id, sc2_id, p2)
+        _next_round(client, game_id, p1)
+
+        db_session.expire_all()
+        game_result = db_session.query(GameResult).filter(GameResult.game_id == game_id).first()
+        rankings = json.loads(game_result.final_rankings)
+
+        for entry in rankings:
+            assert "placement" in entry
+            assert "player_id" in entry
+            assert "player_name" in entry
+            assert "country_name" in entry
+            assert "score" in entry
+
+    def test_game_result_duration_rounds_accurate(self, mock_bc, client, seed_data, db_session):
+        """duration_rounds should match the total number of rounds configured."""
+        p1, p2 = seed_data["player1"], seed_data["player2"]
+        countries = seed_data["countries"]
+
+        game = _create_game(client, p1, rounds=2)
+        game_id = game["id"]
+
+        join1 = _join_game(client, game_id, p1, countries[0].id)
+        join2 = _join_game(client, game_id, p2, countries[1].id)
+        sc1_id = join1["spawned_country_id"]
+        sc2_id = join2["spawned_country_id"]
+
+        _start_game(client, game_id, p1)
+
+        # Round 1
+        _develop(client, game_id, sc1_id, p1)
+        _develop(client, game_id, sc2_id, p2)
+        _next_round(client, game_id, p1)
+
+        # Round 2
+        _develop(client, game_id, sc1_id, p1)
+        _develop(client, game_id, sc2_id, p2)
+        _next_round(client, game_id, p1)
+
+        db_session.expire_all()
+        game_result = db_session.query(GameResult).filter(GameResult.game_id == game_id).first()
+        assert game_result is not None
+        assert game_result.duration_rounds == 2
+
+    def test_no_game_result_before_completion(self, mock_bc, client, seed_data, db_session):
+        """GameResult should not exist while the game is still in progress."""
+        p1, p2 = seed_data["player1"], seed_data["player2"]
+        countries = seed_data["countries"]
+
+        game = _create_game(client, p1, rounds=2)
+        game_id = game["id"]
+
+        join1 = _join_game(client, game_id, p1, countries[0].id)
+        join2 = _join_game(client, game_id, p2, countries[1].id)
+        sc1_id = join1["spawned_country_id"]
+        sc2_id = join2["spawned_country_id"]
+
+        _start_game(client, game_id, p1)
+        _develop(client, game_id, sc1_id, p1)
+        _develop(client, game_id, sc2_id, p2)
+
+        # Advance one round but game should still have rounds remaining
+        _next_round(client, game_id, p1)
+
+        db_session.expire_all()
+        game_result = db_session.query(GameResult).filter(GameResult.game_id == game_id).first()
+        assert game_result is None  # Not completed yet

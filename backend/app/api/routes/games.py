@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
 from app.core.database import get_db
-from app.models.models import Game, Player, Country, SpawnedCountry, GameHistory
+from app.models.models import Game, Player, Country, SpawnedCountry, GameHistory, GameResult
 from app.schemas.schemas import (
     GameCreate,
     Game as GameSchema,
@@ -124,6 +124,7 @@ def _advance_round(db: Session, game: Game, background_tasks: BackgroundTasks) -
 
     if game.phase == "completed":
         leaderboard = _build_leaderboard(db, game.id)
+        _record_game_result(db, game, leaderboard)
         background_tasks.add_task(
             broadcast_event,
             game.id,
@@ -202,6 +203,49 @@ def _build_leaderboard(db: Session, game_id: int) -> list:
         )
     leaderboard.sort(key=lambda x: x["score"], reverse=True)
     return leaderboard
+
+
+def _record_game_result(db: Session, game: Game, leaderboard: list) -> None:
+    """Persist a GameResult row when a game reaches the completed state."""
+    if not leaderboard:
+        return
+
+    winner = leaderboard[0]  # Already sorted descending by score
+
+    # Find the winner's spawned country
+    winner_sc = (
+        db.query(SpawnedCountry)
+        .filter(
+            SpawnedCountry.game_id == game.id,
+            SpawnedCountry.player_id == winner["player_id"],
+        )
+        .first()
+    )
+    if not winner_sc:
+        return
+
+    # Build final_rankings with placement and score for each player
+    final_rankings = [
+        {
+            "placement": idx + 1,
+            "player_id": entry["player_id"],
+            "player_name": entry["player_name"],
+            "country_name": entry["country_name"],
+            "score": entry["score"],
+            "breakdown": entry["breakdown"],
+        }
+        for idx, entry in enumerate(leaderboard)
+    ]
+
+    game_result = GameResult(
+        game_id=game.id,
+        winner_country_id=winner_sc.id,
+        winner_player_id=winner["player_id"],
+        duration_rounds=game.rounds,
+        final_rankings=json.dumps(final_rankings),
+    )
+    db.add(game_result)
+    db.commit()
 
 
 def _build_game_state_payload(db: Session, game: Game) -> dict:

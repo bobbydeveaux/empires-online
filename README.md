@@ -204,7 +204,7 @@ docker-compose down
 - [x] Round summary endpoint with per-player action history
 - [x] New actions: recruit_people (2 gold), acquire_territory (3 gold)
 - [ ] Implement trading between players
-- [ ] Add game history and statistics
+- [x] Auto-record game results on completion (GameResult with winner, rankings, duration)
 - [ ] Create comprehensive API documentation
 - [ ] Implement game spectator mode
 

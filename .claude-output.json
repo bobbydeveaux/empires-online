@@ -1,13 +1,20 @@
 {
-  "prTitle": "feat: extend WebSocket manager with spectator support",
-  "prBody": "## Summary\n\nAdds spectator mode to the WebSocket system. Spectators connect to a dedicated `/ws/{game_id}/spectate` endpoint and receive all game state broadcasts in real-time, but cannot perform any actions.\n\n### Changes\n\n- **`backend/app/services/ws_manager.py`**: Added separate `_spectators` set per game room alongside the existing `_rooms` (player) set. New methods: `connect_spectator()`, `join_room_as_spectator()`, `is_spectator()`, `get_spectator_count()`. `broadcast_to_room()` now fans out to both players and spectators.\n- **`backend/app/api/routes/ws.py`**: Added `/ws/{game_id}/spectate` endpoint. Spectators authenticate with JWT like players. Only `ping` messages are allowed; all other message types (chat, action, develop, end_actions, and unknown types) are rejected with a `{\"type\": \"error\", \"code\": 403}` response. `spectator_joined` and `spectator_left` events are broadcast with current `spectator_count`.\n- **`backend/app/tests/test_ws_spectator.py`**: 18 tests covering ConnectionManager spectator tracking (unit) and spectator endpoint behavior (integration).\n- **`docs/websocket-api.md`**: Updated with spectator endpoint docs, new message types, and spectator connection flow.\n\n### Review feedback addressed\n- The `broadcast_event()` async issue from the previous review was already fixed (confirmed it's async and awaits `_broadcast`)\n\nCloses #80",
+  "prTitle": "feat: auto-record game result on terminal state",
+  "prBody": "## Summary\n\n- Add `GameResult` model and Alembic migration (`002_add_game_results`) for persisting game outcomes\n- Auto-create a `game_results` row when a game reaches `completed` phase, capturing winner, final rankings JSON, and duration\n- Add `GameResult` Pydantic schema for API serialization\n- Add 5 integration tests covering: result creation on completion, correct winner determination, rankings field validation, duration accuracy, and no premature result creation\n- Update existing lifecycle test to also verify GameResult is recorded\n- `broadcast_event` is already async (addresses prior review feedback about sync `asyncio.get_event_loop()`)\n\n### Review feedback addressed\n\n- **CRITICAL broadcast_event issue**: Already resolved in the existing code — `broadcast_event` is `async def` and uses `await _broadcast()`. No `asyncio.get_event_loop()` sync wrapper.\n- **Unused Optional import**: `Optional` IS used on line 98 (`game_state: Optional[Dict[str, Any]]`), so the import is correct.\n\nCloses #75",
   "testsPass": true,
   "filesChanged": [
-    "backend/app/services/ws_manager.py",
-    "backend/app/api/routes/ws.py",
-    "backend/app/tests/test_ws_spectator.py",
-    "docs/websocket-api.md"
+    "backend/app/models/models.py",
+    "backend/app/schemas/schemas.py",
+    "backend/alembic/versions/002_add_game_results.py",
+    "backend/app/api/routes/games.py",
+    "backend/app/tests/test_integration.py"
   ],
-  "docsUpdated": ["docs/websocket-api.md"],
-  "docsReviewed": ["README.md", "docs/database-migrations.md", "docs/toast-notifications.md"]
+  "docsUpdated": [
+    "docs/database-migrations.md",
+    "README.md"
+  ],
+  "docsReviewed": [
+    "docs/websocket-api.md",
+    "docs/toast-notifications.md"
+  ]
 }
