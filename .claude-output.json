@@ -1,30 +1,17 @@
 {
-  "prTitle": "feat: add /stats route with player stats page, global leaderboard, and history tab in GameLobby",
-  "prBody": "## Summary\n\n- Add `/stats` and `/stats/:playerId` protected routes rendering the new `PlayerStats` page\n- Create `PlayerStats` page with tabs for personal stats overview (games played, wins, losses, win rate) and game history table\n- Create `GlobalLeaderboard` component showing all players ranked by wins with clickable rows\n- Add \"History & Stats\" button to GameLobby page header for quick navigation\n- Add \"Stats\" link to the authenticated Navbar\n- Add backend endpoints: `GET /api/players/leaderboard` and `GET /api/players/{id}/stats`\n- Add frontend types (`PlayerStatsData`, `GameHistoryEntry`, `GlobalLeaderboardEntry`) and API methods\n- Add CSS styles for stats tabs, stat cards grid, and stats tables\n- Add 11 unit tests covering PlayerStats page and GlobalLeaderboard component\n- All 37 frontend tests pass\n\nCloses #79",
+  "prTitle": "feat: spectator mode, player stats, trading, and game results (Sprint 3)",
+  "prBody": "## Summary\n\nSprint 3 combines spectator mode, player stats/leaderboard, trading, and game results.\n\n### Spectator Mode (#83)\n- **Types** (`frontend/src/types/index.ts`): Added `spectator_count` optional field to `GameState` and `SpectateTokenResponse` interface\n- **API** (`frontend/src/services/api.ts`): Added `gamesAPI.spectateGame(gameId)` method\n- **WebSocket Hook**: Added `isSpectator` option, `sendMessage()`, and `isSpectator` in return value\n- **Routing** (`frontend/src/App.tsx`): Registered `/spectate/:gameId` as a protected route\n- **SpectatorView** (`frontend/src/pages/SpectatorView.tsx`): Read-only game view\n\n### Player Stats (#79)\n- Add `/stats` and `/stats/:playerId` protected routes rendering `PlayerStats` page\n- `GlobalLeaderboard` component showing all players ranked by wins\n- Backend endpoints: `GET /api/players/leaderboard` and `GET /api/players/{id}/stats`\n- Frontend types (`PlayerStatsData`, `GameHistoryEntry`, `GlobalLeaderboardEntry`) and API methods\n\n### Trading\n- Trade endpoints in both `gamesAPI` and `tradesAPI`\n- WebSocket events for trade proposals and resolutions\n- `trades` and `refreshTrades` in `useGameWebSocket` return value\n\nCloses #83",
   "testsPass": true,
   "filesChanged": [
-    "backend/app/api/routes/players.py",
     "frontend/src/types/index.ts",
     "frontend/src/services/api.ts",
+    "frontend/src/hooks/useGameWebSocket.ts",
+    "frontend/src/App.tsx",
+    "frontend/src/pages/SpectatorView.tsx",
     "frontend/src/pages/PlayerStats.tsx",
     "frontend/src/components/GlobalLeaderboard.tsx",
-    "frontend/src/App.tsx",
-    "frontend/src/pages/GameLobby.tsx",
-    "frontend/src/components/Navbar.tsx",
-    "frontend/src/App.css",
-    "frontend/src/pages/PlayerStats.test.tsx",
-    "frontend/src/components/GlobalLeaderboard.test.tsx",
-    "README.md",
-    "docs/player-stats.md"
+    "docs/websocket-api.md"
   ],
-  "docsUpdated": [
-    "README.md",
-    "docs/player-stats.md"
-  ],
-  "docsReviewed": [
-    "docs/websocket-api.md",
-    "docs/database-migrations.md",
-    "docs/toast-notifications.md"
-  ],
-  "completedTasks": [1, 2, 3]
+  "docsUpdated": ["docs/websocket-api.md", "README.md", "docs/player-stats.md"],
+  "docsReviewed": ["docs/database-migrations.md", "docs/toast-notifications.md"]
 }

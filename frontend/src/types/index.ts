@@ -57,6 +57,11 @@ export interface GameState {
   spectator_count?: number;
 }
 
+export interface SpectateTokenResponse {
+  spectator_token: string;
+  game_id: number;
+}
+
 export interface LeaderboardEntry {
   player_id: number;
   player_name: string;

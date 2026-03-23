@@ -9,6 +9,7 @@ import {
   GameAction,
   LeaderboardEntry,
   AuthToken,
+  SpectateTokenResponse,
   PlayerStatsData,
   GlobalLeaderboardEntry,
   TradeOffer,
@@ -165,7 +166,7 @@ export const gamesAPI = {
     return response.data;
   },
 
-  spectateGame: async (gameId: number): Promise<{ spectator_token: string; game_id: number }> => {
+  spectateGame: async (gameId: number): Promise<SpectateTokenResponse> => {
     const response = await api.post(`/games/${gameId}/spectate`);
     return response.data;
   }
