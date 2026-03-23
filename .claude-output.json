@@ -1,0 +1,11 @@
+{
+  "prTitle": "fix: remove player DB lookup from spectator websocket endpoint",
+  "prBody": "## Summary\n\n- **Fix blocking bug**: The `/ws/{game_id}/spectate` WebSocket endpoint was rejecting all spectator connections because it tried to look up the synthetic JWT `sub` claim (`spectator-game-{id}`) as a real player in the database, which never matches\n- **Solution**: Check the `is_spectator` JWT claim instead of doing a player DB lookup. Spectator tokens carry `is_spectator: true` and a synthetic `sub` — no database account is needed\n- **Also fixed**: `disconnect` calls changed to `disconnect_spectator` for proper cleanup, and logger reference updated from undefined `player_username` to `username`\n- Updated spectator-mode docs to document the WebSocket endpoint authentication behavior\n\n## Review Feedback Addressed\n\n- **CRITICAL**: Removed the player DB lookup from `spectator_websocket_endpoint` that was causing all spectator WebSocket connections to be rejected (the `sub` claim `spectator-game-{id}` is not a real player username)\n\nCloses #81",
+  "testsPass": true,
+  "filesChanged": [
+    "backend/app/api/routes/ws.py",
+    "docs/spectator-mode.md"
+  ],
+  "docsUpdated": ["docs/spectator-mode.md"],
+  "docsReviewed": ["docs/spectator-mode.md", "docs/websocket-api.md"]
+}

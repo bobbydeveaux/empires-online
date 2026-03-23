@@ -1,47 +1,6 @@
 ## Code Review - Changes Requested
 
-## ❌ BLOCKING ISSUES FOUND
-
-### CRITICAL: `broadcast_event()` will silently fail in production
-
-**File:** `backend/app/services/game_broadcast.py:123-132`
-
-```python
-def broadcast_event(game_id: int, message: Dict[str, Any]) -> None:
-    loop = asyncio.get_event_loop()
-    loop.create_task(_broadcast(game_id, message))
-```
-
-This function is synchronous and is passed to `background_tasks.add_task(broadcast_event, ...)`. FastAPI runs sync background task callables in a **threadpool**. From that worker thread, `asyncio.get_event_loop()` will **not** return the main running event loop — it will either raise a `DeprecationWarning` and return a new (non-running) loop, or raise `RuntimeError` in Python 3.12+. Either way, `create_task()` schedules work on a loop that is never run, so **broadcasts silently never execute**.
-
-**Fix:** The simplest solution is to pass the async `_broadcast` function directly to `background_tasks.add_task()`, since FastAPI natively supports async background tasks:
-
-```python
-# In games.py, replace all occurrences of:
-background_tasks.add_task(broadcast_event, game_id, message)
-
-# With:
-background_tasks.add_task(_broadcast, game_id, message)
-```
-
-Or alternatively, make `broadcast_event` async:
-
-```python
-async def broadcast_event(game_id: int, message: Dict[str, Any]) -> None:
-    await _broadcast(game_id, message)
-```
-
-The unit test `test_broadcast_event_creates_task` passes only because the test already runs inside an async event loop (via `pytest.mark.asyncio`), which masks this issue.
-
----
-
-### Non-blocking suggestions
-
-1. **Unused import** (`game_broadcast.py:10`): `Optional` is imported but never used.
-
-2. **N+1 queries in `_build_leaderboard`** (`games.py:34-49`): Each `SpawnedCountry` triggers individual queries for `Country` and `Player`. This is pre-existing code that was just extracted, so not blocking, but worth noting for a future optimization pass with joined loading.
-
-3. **Documentation and tests** look good — all 7 event types are documented in `docs/websocket-api.md`, README is updated, and there are 10 unit tests covering message builders and broadcast logic.
+The review is complete. The key blocking issue is that the dedicated spectator WebSocket endpoint at `/ws/{game_id}/spectate` will reject all connections because it tries to look up `"spectator-game-{id}"` as a real player in the database, which will never match.
 
 **Action Required**: Please address the blocking issues above before merging.
 
