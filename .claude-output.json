@@ -1,0 +1,26 @@
+{
+  "prTitle": "feat: integrate trading UI into Game page with TradePanel and ProposeTrade components",
+  "prBody": "## Summary\n\nIntegrates a complete trading UI into the Game page, enabling players to propose, accept, reject, and cancel trades with other players during active games.\n\n### Changes\n\n- **Trade types** (`types/index.ts`): Added `TradeOffer`, `TradePropose`, `TradeStatus`, `TradeResource` types and `WsTradeProposedMessage`/`WsTradeResolvedMessage` WebSocket message types\n- **Trade API functions** (`api.ts`): Added `listTrades`, `proposeTrade`, `acceptTrade`, `rejectTrade`, `cancelTrade` endpoints\n- **WebSocket hook** (`useGameWebSocket.ts`): Extended to track trades state, handle `trade_proposed` and `trade_resolved` events, and expose `trades`/`refreshTrades` to consumers\n- **TradePanel component** (`TradePanel.tsx`): Displays incoming trades (with Accept/Reject buttons) and outgoing trades (with Cancel button)\n- **ProposeTrade component** (`ProposeTrade.tsx`): Modal with resource sliders for gold, people, and territory (offer and request), player selector, and validation\n- **Game page integration** (`Game.tsx`): TradePanel visible during active games, ProposeTrade modal opens/closes correctly, trade notifications via Toast system\n- **Backend broadcast** (`game_broadcast.py`): Added `trade_proposed_message` and `trade_resolved_message` builders for WebSocket broadcasting\n- **CSS styles** (`App.css`): Added trade card and modal overlay styles\n\n### Review feedback addressed\n- Verified `broadcast_event()` is correctly async (already fixed in current code)\n- Verified `Optional` import is used (by `game_state_update_message`)\n- Added trade broadcast message builders following the existing async pattern\n\nCloses #73",
+  "testsPass": true,
+  "filesChanged": [
+    "frontend/src/types/index.ts",
+    "frontend/src/services/api.ts",
+    "frontend/src/hooks/useGameWebSocket.ts",
+    "frontend/src/components/TradePanel.tsx",
+    "frontend/src/components/ProposeTrade.tsx",
+    "frontend/src/pages/Game.tsx",
+    "frontend/src/App.css",
+    "backend/app/services/game_broadcast.py",
+    "docs/websocket-api.md",
+    "README.md"
+  ],
+  "docsUpdated": [
+    "docs/websocket-api.md",
+    "README.md"
+  ],
+  "docsReviewed": [
+    "DESIGN.md",
+    "COPILOT_INSTRUCTIONS.md"
+  ],
+  "completedTasks": [1, 2, 3, 4]
+}
