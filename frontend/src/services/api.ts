@@ -159,6 +159,34 @@ export const gamesAPI = {
   }
 };
 
+// Trades API
+export const tradesAPI = {
+  proposeTrade: async (gameId: number, trade: TradePropose): Promise<TradeOffer> => {
+    const response = await api.post(`/games/${gameId}/trades`, trade);
+    return response.data;
+  },
+
+  listTrades: async (gameId: number): Promise<TradeOffer[]> => {
+    const response = await api.get(`/games/${gameId}/trades`);
+    return response.data;
+  },
+
+  acceptTrade: async (gameId: number, tradeId: number): Promise<TradeOffer> => {
+    const response = await api.post(`/games/${gameId}/trades/${tradeId}/accept`);
+    return response.data;
+  },
+
+  rejectTrade: async (gameId: number, tradeId: number): Promise<TradeOffer> => {
+    const response = await api.post(`/games/${gameId}/trades/${tradeId}/reject`);
+    return response.data;
+  },
+
+  cancelTrade: async (gameId: number, tradeId: number): Promise<TradeOffer> => {
+    const response = await api.post(`/games/${gameId}/trades/${tradeId}/cancel`);
+    return response.data;
+  }
+};
+
 // WebSocket URL builder
 export function buildWebSocketUrl(gameId: number): string {
   const token = localStorage.getItem('authToken');
