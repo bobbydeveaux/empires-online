@@ -125,6 +125,13 @@ class GameState(BaseModel):
     game: Game
     players: List[SpawnedCountryWithDetails]
     leaderboard: List[Dict[str, Any]]
+    spectator_count: int = 0
+
+
+class SpectatorToken(BaseModel):
+    access_token: str
+    token_type: str
+    is_spectator: bool = True
 
 
 # Authentication schemas

@@ -40,10 +40,14 @@ class ConnectionManager:
     """
 
     def __init__(self) -> None:
-        # game_id -> set of WebSocket connections
+        # game_id -> set of WebSocket connections (players)
         self._rooms: Dict[int, Set[WebSocket]] = {}
         # websocket -> game_id (reverse lookup for cleanup)
         self._connection_rooms: Dict[WebSocket, int] = {}
+        # game_id -> set of spectator WebSocket connections
+        self._spectators: Dict[int, Set[WebSocket]] = {}
+        # websocket -> game_id (reverse lookup for spectator cleanup)
+        self._spectator_rooms: Dict[WebSocket, int] = {}
         # asyncpg connection used for LISTEN
         self._listen_conn: Optional[asyncpg.Connection] = None
         # asyncpg pool used for NOTIFY
@@ -79,15 +83,55 @@ class ConnectionManager:
     def disconnect(self, websocket: WebSocket) -> None:
         """Remove a connection from all tracking structures."""
         self.leave_room(websocket)
+        self._remove_spectator(websocket)
         logger.info("WebSocket disconnected")
+
+    # ------------------------------------------------------------------ #
+    #  Spectator lifecycle                                                 #
+    # ------------------------------------------------------------------ #
+
+    async def connect_spectator(self, websocket: WebSocket, game_id: int) -> None:
+        """Accept a spectator WebSocket connection and add to the spectators set."""
+        await websocket.accept()
+        self._add_spectator(websocket, game_id)
+        logger.info("Spectator connected to game room %d", game_id)
+
+    def _add_spectator(self, websocket: WebSocket, game_id: int) -> None:
+        """Add a spectator connection to a game room."""
+        if game_id not in self._spectators:
+            self._spectators[game_id] = set()
+        self._spectators[game_id].add(websocket)
+        self._spectator_rooms[websocket] = game_id
+
+    def _remove_spectator(self, websocket: WebSocket) -> None:
+        """Remove a spectator connection from its room."""
+        game_id = self._spectator_rooms.pop(websocket, None)
+        if game_id is not None and game_id in self._spectators:
+            self._spectators[game_id].discard(websocket)
+            if not self._spectators[game_id]:
+                del self._spectators[game_id]
+
+    def disconnect_spectator(self, websocket: WebSocket) -> None:
+        """Remove a spectator from all tracking structures."""
+        self._remove_spectator(websocket)
+        logger.info("Spectator disconnected")
+
+    def is_spectator(self, websocket: WebSocket) -> bool:
+        """Check if a WebSocket connection is a spectator."""
+        return websocket in self._spectator_rooms
+
+    def get_spectator_count(self, game_id: int) -> int:
+        """Return the number of spectators in a game room."""
+        return len(self._spectators.get(game_id, set()))
 
     # ------------------------------------------------------------------ #
     #  Messaging                                                           #
     # ------------------------------------------------------------------ #
 
     async def broadcast_to_room(self, game_id: int, message: Dict[str, Any]) -> None:
-        """Send a JSON message to all connections in a game room."""
+        """Send a JSON message to all connections (players + spectators) in a game room."""
         connections = self._rooms.get(game_id, set()).copy()
+        spectators = self._spectators.get(game_id, set()).copy()
         payload = json.dumps(message)
         for websocket in connections:
             try:
@@ -95,6 +139,12 @@ class ConnectionManager:
             except Exception:
                 logger.warning("Failed to send to a WebSocket in room %d", game_id)
                 self.disconnect(websocket)
+        for websocket in spectators:
+            try:
+                await websocket.send_text(payload)
+            except Exception:
+                logger.warning("Failed to send to a spectator in room %d", game_id)
+                self.disconnect_spectator(websocket)
 
     async def send_personal(self, websocket: WebSocket, message: Dict[str, Any]) -> None:
         """Send a JSON message to a single connection."""
@@ -105,8 +155,19 @@ class ConnectionManager:
         return len(self._rooms.get(game_id, set()))
 
     def get_rooms(self) -> Dict[int, int]:
-        """Return a dict of game_id -> connection count."""
+        """Return a dict of game_id -> player connection count."""
         return {gid: len(conns) for gid, conns in self._rooms.items()}
+
+    def get_rooms_with_spectators(self) -> Dict[int, Dict[str, int]]:
+        """Return a dict of game_id -> {players: count, spectators: count}."""
+        all_ids = set(self._rooms.keys()) | set(self._spectators.keys())
+        return {
+            gid: {
+                "players": len(self._rooms.get(gid, set())),
+                "spectators": len(self._spectators.get(gid, set())),
+            }
+            for gid in all_ids
+        }
 
     # ------------------------------------------------------------------ #
     #  PostgreSQL NOTIFY helper                                            #
