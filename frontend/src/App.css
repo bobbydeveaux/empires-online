@@ -393,6 +393,63 @@ code {
 }
 
 
+/* Trade panel */
+.trade-card {
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #eee;
+  margin-bottom: 8px;
+  background: #fafafa;
+}
+
+.trade-incoming {
+  border-left: 3px solid #2e7d32;
+}
+
+.trade-outgoing {
+  border-left: 3px solid #1976d2;
+}
+
+.trade-card-header {
+  margin-bottom: 6px;
+}
+
+.trade-card-body {
+  font-size: 13px;
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.trade-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* Trade modal */
+.trade-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.trade-modal {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
 @media (max-width: 768px) {
   .grid-2,
   .grid-3 {
