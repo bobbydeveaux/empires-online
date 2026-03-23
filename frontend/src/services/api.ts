@@ -123,6 +123,11 @@ export const gamesAPI = {
   getLeaderboard: async (gameId: number): Promise<LeaderboardEntry[]> => {
     const response = await api.get(`/games/${gameId}/leaderboard`);
     return response.data;
+  },
+
+  spectateGame: async (gameId: number): Promise<{ spectator_token: string; game_id: number }> => {
+    const response = await api.post(`/games/${gameId}/spectate`);
+    return response.data;
   }
 };
 
