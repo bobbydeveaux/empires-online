@@ -146,6 +146,8 @@ Instability Penalty = If revolters > supporters, multiply total by 0.5
 ### Players
 - `GET /api/players/countries` - List available countries
 - `GET /api/players/me` - Get current player info
+- `GET /api/players/leaderboard` - Global leaderboard across all completed games
+- `GET /api/players/{id}/stats` - Player stats (wins, scores, game history)
 
 ### WebSocket
 - `WS /ws/{game_id}?token=<jwt>` - Real-time game updates (JWT required via query param or Authorization header)
@@ -208,6 +210,8 @@ docker-compose down
 - [x] Auto-record game results on completion (GameResult with winner, rankings, duration)
 - [ ] Create comprehensive API documentation
 - [x] Spectator mode: spectate button in lobby, read-only spectator view with live updates
+- [x] Player stats page with game history and performance metrics
+- [x] Global leaderboard across all completed games
 
 ### Phase 3 - Polish (📋 Future)
 - [ ] Add AI opponents for single-player practice
@@ -260,3 +264,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - See [DESIGN.md](DESIGN.md) for complete game rules, API specifications, and implementation details
 - See [COPILOT_INSTRUCTIONS.md](COPILOT_INSTRUCTIONS.md) for development guidelines and architecture decisions
 - See [docs/websocket-api.md](docs/websocket-api.md) for WebSocket API and frontend hook documentation
+- See [docs/player-stats.md](docs/player-stats.md) for player stats and global leaderboard documentation
