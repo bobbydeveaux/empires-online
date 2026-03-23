@@ -1,28 +1,31 @@
 {
-  "prTitle": "feat: add spectator mode — backend WebSocket support and frontend spectator view",
-  "prBody": "## Summary\n\nImplements full spectator mode for Empires Online, allowing authenticated users to watch in-progress games in real-time without being able to take actions.\n\n### Backend Changes\n\n- **ws_manager.py**: Extended ConnectionManager with separate spectator tracking (`_spectators` set per room, `_is_spectator` lookup), `connect_spectator`/`disconnect_spectator`/`join_room_as_spectator`/`is_spectator`/`get_spectator_count` methods, and broadcast delivery to both players and spectators\n- **games.py**: Added `POST /games/{game_id}/spectate` endpoint (authenticated) returning spectator JWT token with `is_spectator: true` claim, updated `GET /games/` with `spectator_count` field and `games_with_spectators=true` filter, added `spectator_count` to GameState response\n- **ws.py**: Updated WebSocket endpoint to handle spectator tokens — spectators receive game broadcasts but any non-ping message is rejected with 403 error; added dedicated `/ws/{game_id}/spectate` endpoint\n- **schemas.py**: Added `spectator_count` to `GameState` schema and new `SpectatorToken` response schema\n\n### Frontend Changes\n\n- **api.ts**: Added `spectateGame()` API method returning `{ spectator_token, game_id }`\n- **GameLobby.tsx**: Added \"Spectate\" button to `GameCardWithWs` for games in `development` or `actions` phase\n- **SpectatorView.tsx**: New read-only spectator page (`/spectate/:gameId`) with game state display, player statuses, leaderboard, round summary deltas, and live WebSocket updates\n- **App.tsx**: Added `/spectate/:gameId` protected route\n\n### Tests\n\n- **test_ws_spectator.py**: Integration tests covering spectator WebSocket flow, token validation, action rejection, and spectator_count tracking\n\n### Docs\n\n- Updated websocket-api.md with spectator connection flow and README with spectator mode status\n\n### Review Feedback Addressed\n- The `broadcast_event` function was already corrected to async in the current codebase\n- `Optional` import in game_broadcast.py is used (line 98) — not actually unused\n\nCloses #82",
+  "prTitle": "feat: add trading system with full API, service, and 42 unit/integration tests",
+  "prBody": "## Summary\n\nImplements the complete trading system for Empires Online, including the Trade model, service layer, REST endpoints, WebSocket broadcast messages, and comprehensive test coverage.\n\n### Changes\n\n- **Trade model** (`models.py`): New `Trade` table with offer/request resources, status tracking, and a DB constraint preventing self-trades\n- **Alembic migration** (`002_add_trades.py`): Migration to create the trades table\n- **Trade schemas** (`schemas.py`): `TradePropose`, `TradeResponse`, `TradeList` Pydantic schemas; added `trade_allowed` flag to `GameState`\n- **TradeService** (`trade_service.py`): Business logic for propose/accept/reject with validation (resource availability, self-trade prevention, phase checks, atomic resource transfer)\n- **Trade routes** (`trades.py`): 4 REST endpoints — propose, accept, reject, list pending trades\n- **Broadcast messages** (`game_broadcast.py`): `trade_proposed`, `trade_accepted`, `trade_rejected` WebSocket message builders\n- **Router registration** (`main.py`): Trades router mounted under `/api/games` prefix\n- **Test infrastructure fix** (`conftest.py`): Added `StaticPool` and `check_same_thread=False` to fix SQLite threading issues in integration tests\n\n### Test Coverage (42 tests)\n\n**Unit tests** (`test_trade_service.py` — 24 tests):\n- Propose: happy path, self-trade rejection, wrong phase, insufficient gold/people/territory, game not found, receiver not in game, empty trade, negative amounts\n- Accept: happy path with atomic resource transfer verification, not-receiver forbidden, already accepted/rejected, not found, proposer lost resources, receiver insufficient resources, wrong phase\n- Reject: happy path, not-receiver forbidden, already accepted, not found\n- List: returns only pending trades, empty result\n\n**Integration tests** (`test_trade_endpoints.py` — 18 tests):\n- Propose endpoint: success, broadcasts event, insufficient resources, receiver not in game, wrong phase, unauthenticated\n- Accept endpoint: success with resource balance verification, broadcasts event, not-receiver forbidden, not found\n- Reject endpoint: success, broadcasts event, not-receiver forbidden, already accepted\n- List endpoint: returns pending, excludes resolved, empty game, unauthenticated\n\nCloses #69",
   "testsPass": true,
   "filesChanged": [
-    "backend/app/services/ws_manager.py",
+    "backend/app/models/models.py",
+    "backend/alembic/versions/002_add_trades.py",
     "backend/app/schemas/schemas.py",
-    "backend/app/api/routes/games.py",
-    "backend/app/api/routes/ws.py",
-    "backend/app/tests/test_ws_spectator.py",
-    "frontend/src/App.tsx",
-    "frontend/src/pages/GameLobby.tsx",
-    "frontend/src/pages/SpectatorView.tsx",
-    "frontend/src/services/api.ts",
-    "docs/websocket-api.md",
-    "README.md"
+    "backend/app/services/trade_service.py",
+    "backend/app/services/game_broadcast.py",
+    "backend/app/api/routes/trades.py",
+    "backend/app/main.py",
+    "backend/app/tests/conftest.py",
+    "backend/app/tests/test_trade_service.py",
+    "backend/app/tests/test_trade_endpoints.py",
+    "README.md",
+    "docs/trading-api.md",
+    "docs/websocket-api.md"
   ],
   "docsUpdated": [
-    "docs/websocket-api.md",
-    "README.md"
+    "README.md",
+    "docs/trading-api.md",
+    "docs/websocket-api.md"
   ],
   "docsReviewed": [
-    "docs/database-migrations.md",
-    "docs/toast-notifications.md",
-    "DESIGN.md"
+    "docs/concepts/empires-online/LLD.md",
+    "docs/concepts/empires-online/PRD.md",
+    "docs/concepts/empires-online/tasks.yaml"
   ],
-  "completedTasks": [1, 2, 3]
+  "completedTasks": [1, 2, 3, 4, 5]
 }

@@ -138,13 +138,8 @@ class GameState(BaseModel):
     game: Game
     players: List[SpawnedCountryWithDetails]
     leaderboard: List[Dict[str, Any]]
+    trade_allowed: bool = False
     spectator_count: int = 0
-
-
-class SpectatorToken(BaseModel):
-    access_token: str
-    token_type: str
-    is_spectator: bool = True
 
 
 # Spectator schemas
@@ -161,3 +156,36 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: Optional[str] = None
+
+
+# Trade schemas
+class TradePropose(BaseModel):
+    receiver_country_id: int
+    offer_gold: int = 0
+    offer_people: int = 0
+    offer_territory: int = 0
+    request_gold: int = 0
+    request_people: int = 0
+    request_territory: int = 0
+
+
+class TradeResponse(BaseModel):
+    id: int
+    game_id: int
+    proposer_country_id: int
+    receiver_country_id: int
+    offer_gold: int
+    offer_people: int
+    offer_territory: int
+    request_gold: int
+    request_people: int
+    request_territory: int
+    status: str
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class TradeList(BaseModel):
+    trades: List[TradeResponse]

@@ -161,6 +161,51 @@ def round_summary_message(
     }
 
 
+def trade_proposed_message(
+    game_id: int,
+    trade_id: int,
+    proposer_id: int,
+    receiver_id: int,
+) -> Dict[str, Any]:
+    return {
+        "type": "trade_proposed",
+        "game_id": game_id,
+        "trade_id": trade_id,
+        "proposer_country_id": proposer_id,
+        "receiver_country_id": receiver_id,
+    }
+
+
+def trade_accepted_message(
+    game_id: int,
+    trade_id: int,
+    proposer_id: int,
+    receiver_id: int,
+) -> Dict[str, Any]:
+    return {
+        "type": "trade_accepted",
+        "game_id": game_id,
+        "trade_id": trade_id,
+        "proposer_country_id": proposer_id,
+        "receiver_country_id": receiver_id,
+    }
+
+
+def trade_rejected_message(
+    game_id: int,
+    trade_id: int,
+    proposer_id: int,
+    receiver_id: int,
+) -> Dict[str, Any]:
+    return {
+        "type": "trade_rejected",
+        "game_id": game_id,
+        "trade_id": trade_id,
+        "proposer_country_id": proposer_id,
+        "receiver_country_id": receiver_id,
+    }
+
+
 
 # ---------------------------------------------------------------------------
 # Broadcast dispatcher (runs as a BackgroundTask)
