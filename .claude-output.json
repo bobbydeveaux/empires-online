@@ -1,0 +1,20 @@
+{
+  "prTitle": "feat: add trading types and API service functions",
+  "prBody": "## Summary\n\nDefine TypeScript types for trades and add API service functions for the trading system.\n\n### Changes\n\n- **Types** (`frontend/src/types/index.ts`):\n  - `TradeStatus` — union type for trade states (pending, accepted, rejected, cancelled)\n  - `TradeResource` — resource amounts (gold, people, territory)\n  - `TradeOffer` — full trade object with proposer/receiver, offer/request amounts, status\n  - `TradePropose` — input type for proposing trades\n  - `WsTradeProposedMessage` / `WsTradeResolvedMessage` — WebSocket message types for trade events\n  - Updated `WsServerMessage` union to include trade message types\n\n- **API Service** (`frontend/src/services/api.ts`):\n  - `tradesAPI.proposeTrade()` — POST /games/{id}/trades\n  - `tradesAPI.listTrades()` — GET /games/{id}/trades\n  - `tradesAPI.acceptTrade()` — POST /games/{id}/trades/{id}/accept\n  - `tradesAPI.rejectTrade()` — POST /games/{id}/trades/{id}/reject\n  - `tradesAPI.cancelTrade()` — POST /games/{id}/trades/{id}/cancel\n\n- **Documentation**:\n  - New `docs/trading-api.md` with full REST endpoint reference, types, and usage examples\n  - Updated `docs/websocket-api.md` with trade event types\n\nCloses #70",
+  "testsPass": true,
+  "filesChanged": [
+    "frontend/src/types/index.ts",
+    "frontend/src/services/api.ts",
+    "docs/trading-api.md",
+    "docs/websocket-api.md"
+  ],
+  "docsUpdated": [
+    "docs/trading-api.md",
+    "docs/websocket-api.md"
+  ],
+  "docsReviewed": [
+    "docs/spectator-mode.md",
+    "docs/toast-notifications.md",
+    "docs/database-migrations.md"
+  ]
+}
