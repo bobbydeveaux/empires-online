@@ -205,7 +205,9 @@ interface GameCardWithWsProps {
 /** Game card that subscribes to WebSocket for real-time player join/leave updates. */
 const GameCardWithWs: React.FC<GameCardWithWsProps> = ({ game, countries, onJoin, onGameUpdated }) => {
   const [selectedCountryId, setSelectedCountryId] = useState<number>(countries[0]?.id || 0);
+  const [spectateLoading, setSpectateLoading] = useState(false);
   const token = localStorage.getItem('authToken');
+  const navigate = useNavigate();
 
   // Only subscribe to WebSocket for games in "waiting" phase
   const shouldConnect = game.phase === 'waiting';
@@ -215,6 +217,19 @@ const GameCardWithWs: React.FC<GameCardWithWsProps> = ({ game, countries, onJoin
       onGameUpdated();
     }
   }, [onGameUpdated]);
+
+  const handleSpectate = async () => {
+    setSpectateLoading(true);
+    try {
+      const result = await gamesAPI.spectateGame(game.id);
+      localStorage.setItem(`spectatorToken:${game.id}`, result.spectator_token);
+      navigate(`/spectate/${game.id}`);
+    } catch (err: any) {
+      console.error('Failed to spectate game:', err);
+    } finally {
+      setSpectateLoading(false);
+    }
+  };
 
   const { connectionStatus } = useGameWebSocket({
     gameId: shouldConnect ? game.id : null,
@@ -267,7 +282,25 @@ const GameCardWithWs: React.FC<GameCardWithWsProps> = ({ game, countries, onJoin
         </div>
       )}
 
-      {game.phase !== 'waiting' && (
+      {game.phase !== 'waiting' && game.phase !== 'completed' && (
+        <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+          <button
+            className="btn"
+            onClick={handleSpectate}
+            disabled={spectateLoading}
+          >
+            {spectateLoading ? 'Loading...' : 'Spectate'}
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => window.location.href = `/game/${game.id}`}
+          >
+            View Game
+          </button>
+        </div>
+      )}
+
+      {game.phase === 'completed' && (
         <button
           className="btn btn-secondary"
           onClick={() => window.location.href = `/game/${game.id}`}

@@ -110,9 +110,18 @@ class ConnectionManager:
         self.leave_room(websocket)
         logger.info("WebSocket disconnected")
 
+    def disconnect_spectator(self, websocket: WebSocket) -> None:
+        """Remove a spectator from all tracking structures."""
+        self.leave_room(websocket)
+        logger.info("Spectator disconnected")
+
     def is_spectator(self, websocket: WebSocket) -> bool:
         """Return True if the given connection is a spectator."""
         return self._is_spectator.get(websocket, False)
+
+    def get_spectator_count(self, game_id: int) -> int:
+        """Return the number of spectators in a game room."""
+        return len(self._spectators.get(game_id, set()))
 
     # ------------------------------------------------------------------ #
     #  Messaging                                                           #
@@ -139,13 +148,20 @@ class ConnectionManager:
         """Return the number of player connections in a game room."""
         return len(self._rooms.get(game_id, set()))
 
-    def get_spectator_count(self, game_id: int) -> int:
-        """Return the number of spectator connections in a game room."""
-        return len(self._spectators.get(game_id, set()))
-
     def get_rooms(self) -> Dict[int, int]:
         """Return a dict of game_id -> player connection count."""
         return {gid: len(conns) for gid, conns in self._rooms.items()}
+
+    def get_rooms_with_spectators(self) -> Dict[int, Dict[str, int]]:
+        """Return a dict of game_id -> {players: count, spectators: count}."""
+        all_ids = set(self._rooms.keys()) | set(self._spectators.keys())
+        return {
+            gid: {
+                "players": len(self._rooms.get(gid, set())),
+                "spectators": len(self._spectators.get(gid, set())),
+            }
+            for gid in all_ids
+        }
 
     # ------------------------------------------------------------------ #
     #  PostgreSQL NOTIFY helper                                            #
