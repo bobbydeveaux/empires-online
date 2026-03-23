@@ -324,4 +324,57 @@ describe('useGameWebSocket', () => {
 
     expect(gamesAPI.getGameState).toHaveBeenCalledWith(1);
   });
+
+  it('should return isSpectator as false by default', () => {
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
+    expect(result.current.isSpectator).toBe(false);
+  });
+
+  it('should return isSpectator as true when option set', () => {
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token', isSpectator: true })
+    );
+    expect(result.current.isSpectator).toBe(true);
+  });
+
+  it('sendMessage should return false in spectator mode', async () => {
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token', isSpectator: true })
+    );
+
+    await act(async () => {
+      MockWebSocket.latest().simulateOpen();
+    });
+
+    const sent = result.current.sendMessage({ type: 'chat', message: 'hello' });
+    expect(sent).toBe(false);
+    expect(MockWebSocket.latest().send).not.toHaveBeenCalled();
+  });
+
+  it('sendMessage should send when not in spectator mode', async () => {
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
+
+    await act(async () => {
+      MockWebSocket.latest().simulateOpen();
+    });
+
+    const sent = result.current.sendMessage({ type: 'chat', message: 'hello' });
+    expect(sent).toBe(true);
+    expect(MockWebSocket.latest().send).toHaveBeenCalledWith(
+      JSON.stringify({ type: 'chat', message: 'hello' })
+    );
+  });
+
+  it('sendMessage should return false when connection is not open', () => {
+    const { result } = renderHook(() =>
+      useGameWebSocket({ gameId: 1, token: 'test-token' })
+    );
+    // WebSocket is in CONNECTING state, not OPEN
+    const sent = result.current.sendMessage({ type: 'ping' });
+    expect(sent).toBe(false);
+  });
 });

@@ -83,6 +83,13 @@ These messages are broadcast from REST endpoints when game state changes occur, 
 | `game_completed` | `{"game_id", "leaderboard": [...]}` | The game ended; includes the final leaderboard |
 | `game_state_update` | `{"game_id", "game_state?": GameState}` | Full game state push after actions and phase transitions |
 
+#### Trade Events
+
+| Type | Payload | Description |
+|------|---------|-------------|
+| `trade_proposed` | `{"game_id", "trade": TradeOffer}` | A new trade offer was proposed |
+| `trade_resolved` | `{"game_id", "trade": TradeOffer, "resolution": "accepted"\|"rejected"\|"cancelled"}` | A trade was accepted, rejected, or cancelled |
+
 #### Reserved / Future Server → Client
 
 | Type | Payload | Description |
@@ -132,7 +139,7 @@ ws.onmessage = (event) => {
 All WebSocket message types are defined in `frontend/src/types/index.ts` as a discriminated union on the `type` field:
 
 - **`WsClientMessage`** — union of messages the client can send (`ping`, `chat`)
-- **`WsServerMessage`** — union of messages the server can send (`player_joined`, `player_left`, `pong`, `chat`, `error`, `game_state_update`, `round_changed`)
+- **`WsServerMessage`** — union of messages the server can send (`player_joined`, `player_left`, `pong`, `chat`, `error`, `game_state_update`, `round_changed`, `trade_proposed`, `trade_resolved`)
 
 ### `useGameWebSocket` Hook
 
@@ -141,10 +148,11 @@ The `useGameWebSocket` hook (`frontend/src/hooks/useGameWebSocket.ts`) provides 
 ```typescript
 import { useGameWebSocket } from '../hooks/useGameWebSocket';
 
-const { gameState, connectionStatus, reconnect, refreshGameState } = useGameWebSocket({
+const { gameState, connectionStatus, reconnect, refreshGameState, sendMessage, isSpectator, trades, refreshTrades } = useGameWebSocket({
   gameId: 1,
   token: 'jwt-token',
   onMessage: (msg) => console.log(msg),
+  isSpectator: false, // optional, defaults to false
 });
 ```
 
@@ -153,16 +161,39 @@ const { gameState, connectionStatus, reconnect, refreshGameState } = useGameWebS
 - `connectionStatus` — `'connecting' | 'connected' | 'disconnected' | 'reconnecting'`
 - `reconnect()` — Manually trigger a reconnect
 - `refreshGameState()` — Manually fetch fresh state via REST
+- `sendMessage(msg)` — Send a `WsClientMessage` over the WebSocket. Returns `false` if in spectator mode or not connected.
+- `isSpectator` — Whether this connection is in spectator (read-only) mode
+- `trades` — Array of active `TradeOffer` objects for the current game
+- `refreshTrades()` — Manually refresh trades from REST
 
 **Behavior:**
 - Connects to `WS /ws/{gameId}?token=<jwt>` on mount
 - Fetches full game state via REST on connect and reconnect
 - On `game_state_update`, applies the included `game_state` directly (or refetches via REST if absent)
 - Refetches state when `player_joined`, `player_left`, or `round_changed` messages arrive
+- On `trade_proposed`, adds the trade to the local trades list
+- On `trade_resolved`, removes the trade from the local list and refetches game state if accepted
 - Implements exponential backoff reconnection (1s, 2s, 4s, ... up to 30s max)
 - Does not reconnect on auth failure (close code 1008)
 - Sends ping keepalive every 25 seconds
 - Cleans up on unmount
+- **Spectator mode**: When `isSpectator` is `true`, `sendMessage()` always returns `false` and no outbound messages are sent
+
+### Spectator Mode
+
+Spectators can watch a game in real-time without participating:
+
+1. Call `POST /games/{gameId}/spectate` to get a spectator token
+2. Connect to the WebSocket using the spectator token
+3. The `useGameWebSocket` hook with `isSpectator: true` prevents sending action messages
+
+**Route:** `/spectate/:gameId` — Protected route that renders a read-only game view.
+
+**API:** `gamesAPI.spectateGame(gameId)` — Returns `{ spectator_token, game_id }`.
+
+**Types:**
+- `GameState.spectator_count` — Optional field indicating how many spectators are watching
+- `SpectateTokenResponse` — Response type from the spectate endpoint
 
 ### WebSocket URL Utilities
 

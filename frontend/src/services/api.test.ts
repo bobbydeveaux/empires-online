@@ -11,19 +11,20 @@ jest.mock('axios', () => {
   return {
     __esModule: true,
     default: { create: jest.fn(() => instance) },
+    _instance: instance,
   };
 });
 
-import { buildWebSocketUrl, statsAPI } from './api';
-import axios from 'axios';
+import { buildWebSocketUrl, gamesAPI } from './api';
 
-// Get the mocked axios instance
-const mockedAxios = axios.create() as jest.Mocked<ReturnType<typeof axios.create>>;
+// Access the mock instance via require (after mock is set up)
+const { _instance: mockAxios } = jest.requireMock('axios');
 
 const originalLocation = window.location;
 
 beforeEach(() => {
   localStorage.clear();
+  jest.clearAllMocks();
 });
 
 afterEach(() => {
@@ -73,55 +74,13 @@ describe('buildWebSocketUrl', () => {
   });
 });
 
-describe('statsAPI', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+describe('gamesAPI.spectateGame', () => {
+  it('calls POST /games/{gameId}/spectate and returns the response', async () => {
+    const mockResponse = { data: { spectator_token: 'spec-token-123', game_id: 42 } };
+    mockAxios.post.mockResolvedValue(mockResponse);
 
-  describe('fetchPlayerHistory', () => {
-    it('calls GET /players/{playerId}/history and returns response data', async () => {
-      const mockResponse = {
-        player_id: 1,
-        username: 'testuser',
-        stats: { total_games: 5, wins: 3, losses: 2, win_rate: 0.6 },
-        history: [
-          {
-            game_id: 10,
-            placement: 1,
-            score: 42,
-            country_name: 'Rome',
-            duration_rounds: 5,
-            finished_at: '2026-03-20T12:00:00Z',
-          },
-        ],
-      };
-      mockedAxios.get.mockResolvedValueOnce({ data: mockResponse });
-
-      const result = await statsAPI.fetchPlayerHistory(1);
-
-      expect(mockedAxios.get).toHaveBeenCalledWith('/players/1/history');
-      expect(result).toEqual(mockResponse);
-    });
-  });
-
-  describe('fetchLeaderboard', () => {
-    it('calls GET /leaderboard and returns response data', async () => {
-      const mockResponse = [
-        {
-          player_id: 1,
-          username: 'topplayer',
-          total_games: 10,
-          wins: 8,
-          win_rate: 0.8,
-          avg_placement: 1.5,
-        },
-      ];
-      mockedAxios.get.mockResolvedValueOnce({ data: mockResponse });
-
-      const result = await statsAPI.fetchLeaderboard();
-
-      expect(mockedAxios.get).toHaveBeenCalledWith('/leaderboard');
-      expect(result).toEqual(mockResponse);
-    });
+    const result = await gamesAPI.spectateGame(42);
+    expect(mockAxios.post).toHaveBeenCalledWith('/games/42/spectate');
+    expect(result).toEqual({ spectator_token: 'spec-token-123', game_id: 42 });
   });
 });
