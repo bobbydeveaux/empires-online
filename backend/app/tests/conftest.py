@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 from app.core.database import Base, get_db
 from app.main import app
-from app.models.models import Player, Country, Game, SpawnedCountry
+from app.models.models import Player, Country, Game, SpawnedCountry, GameResult
 from app.api.routes.auth import get_current_user, create_access_token, get_password_hash
 
 
