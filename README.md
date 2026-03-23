@@ -204,7 +204,7 @@ docker-compose down
 - [x] Stability check at round end (revolters > supporters → gold loss)
 - [x] Round summary endpoint with per-player action history
 - [x] New actions: recruit_people (2 gold), acquire_territory (3 gold)
-- [ ] Implement trading between players
+- [x] Trading UI: TradePanel (incoming/outgoing offers) and ProposeTrade modal with resource sliders
 - [x] Auto-record game results on completion (GameResult with winner, rankings, duration)
 - [ ] Create comprehensive API documentation
 - [x] Spectator mode: spectate button in lobby, read-only spectator view with live updates
