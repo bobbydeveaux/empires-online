@@ -128,7 +128,10 @@ def _advance_round(db: Session, game: Game, background_tasks: BackgroundTasks) -
 
     if game.phase == "completed":
         leaderboard = _build_leaderboard(db, game.id)
+
+        # Record game result
         _record_game_result(db, game, leaderboard)
+
         background_tasks.add_task(
             broadcast_event,
             game.id,
@@ -210,7 +213,12 @@ def _build_leaderboard(db: Session, game_id: int) -> list:
 
 
 def _record_game_result(db: Session, game: Game, leaderboard: list) -> None:
-    """Persist a GameResult row when a game reaches the completed state."""
+    """Persist a GameResult row when a game reaches the completed phase."""
+    # Don't double-record
+    existing = db.query(GameResult).filter(GameResult.game_id == game.id).first()
+    if existing:
+        return
+
     if not leaderboard:
         return
 
@@ -228,27 +236,26 @@ def _record_game_result(db: Session, game: Game, leaderboard: list) -> None:
     if not winner_sc:
         return
 
-    # Build final_rankings with placement and score for each player
-    final_rankings = [
-        {
-            "placement": idx + 1,
+    # Build ranked list for final_rankings JSON
+    rankings = []
+    for rank, entry in enumerate(leaderboard, start=1):
+        rankings.append({
+            "rank": rank,
             "player_id": entry["player_id"],
             "player_name": entry["player_name"],
             "country_name": entry["country_name"],
             "score": entry["score"],
             "breakdown": entry["breakdown"],
-        }
-        for idx, entry in enumerate(leaderboard)
-    ]
+        })
 
-    game_result = GameResult(
+    result = GameResult(
         game_id=game.id,
-        winner_country_id=winner_sc.id,
         winner_player_id=winner["player_id"],
+        winner_country_id=winner_sc.id,
         duration_rounds=game.rounds,
-        final_rankings=json.dumps(final_rankings),
+        final_rankings=json.dumps(rankings),
     )
-    db.add(game_result)
+    db.add(result)
     db.commit()
 
 

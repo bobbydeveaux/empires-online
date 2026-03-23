@@ -151,10 +151,12 @@ Instability Penalty = If revolters > supporters, multiply total by 0.5
 - `GET /api/games/{id}/trades` - List pending trades for a game
 
 ### Players
-- `GET /api/players/countries` - List available countries
 - `GET /api/players/me` - Get current player info
-- `GET /api/players/leaderboard` - Global leaderboard (players ranked by wins)
-- `GET /api/players/{id}/stats` - Player stats with game history
+- `GET /api/players/` - List all players
+- `GET /api/players/countries` - List available countries
+- `GET /api/players/{player_id}/history` - Get player's completed game history with placement
+- `GET /api/players/{player_id}/stats` - Get player's aggregated stats (total games, wins, win rate)
+- `GET /api/players/leaderboard` - Global all-time leaderboard (wins, win rate)
 
 ### WebSocket
 - `WS /ws/{game_id}?token=<jwt>` - Real-time game updates (JWT required via query param or Authorization header)
