@@ -1,0 +1,13 @@
+{
+  "prTitle": "feat: extend WebSocket manager with spectator support",
+  "prBody": "## Summary\n\nAdds spectator mode to the WebSocket system. Spectators connect to a dedicated `/ws/{game_id}/spectate` endpoint and receive all game state broadcasts in real-time, but cannot perform any actions.\n\n### Changes\n\n- **`backend/app/services/ws_manager.py`**: Added separate `_spectators` set per game room alongside the existing `_rooms` (player) set. New methods: `connect_spectator()`, `join_room_as_spectator()`, `is_spectator()`, `get_spectator_count()`. `broadcast_to_room()` now fans out to both players and spectators.\n- **`backend/app/api/routes/ws.py`**: Added `/ws/{game_id}/spectate` endpoint. Spectators authenticate with JWT like players. Only `ping` messages are allowed; all other message types (chat, action, develop, end_actions, and unknown types) are rejected with a `{\"type\": \"error\", \"code\": 403}` response. `spectator_joined` and `spectator_left` events are broadcast with current `spectator_count`.\n- **`backend/app/tests/test_ws_spectator.py`**: 18 tests covering ConnectionManager spectator tracking (unit) and spectator endpoint behavior (integration).\n- **`docs/websocket-api.md`**: Updated with spectator endpoint docs, new message types, and spectator connection flow.\n\n### Review feedback addressed\n- The `broadcast_event()` async issue from the previous review was already fixed (confirmed it's async and awaits `_broadcast`)\n\nCloses #80",
+  "testsPass": true,
+  "filesChanged": [
+    "backend/app/services/ws_manager.py",
+    "backend/app/api/routes/ws.py",
+    "backend/app/tests/test_ws_spectator.py",
+    "docs/websocket-api.md"
+  ],
+  "docsUpdated": ["docs/websocket-api.md"],
+  "docsReviewed": ["README.md", "docs/database-migrations.md", "docs/toast-notifications.md"]
+}
