@@ -315,6 +315,7 @@ def _build_game_state_payload(db: Session, game: Game) -> dict:
         },
         "players": players,
         "leaderboard": leaderboard,
+        "trade_allowed": game.phase in ("actions",),
     }
 
 
@@ -429,6 +430,7 @@ def get_game_state(
         game=game,
         players=players_data,
         leaderboard=leaderboard,
+        trade_allowed=game.phase in ("actions",),
         spectator_count=manager.get_spectator_count(game_id),
     )
 
