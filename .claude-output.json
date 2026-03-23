@@ -1,0 +1,10 @@
+{
+  "alreadyImplemented": true,
+  "prTitle": "chore: close duplicate - game_results table and model already exist",
+  "prBody": "## Summary\n\nThe game_results table migration and GameResult model already exist and are fully functional.\n\nNo changes needed.\n\nCloses #74",
+  "testsPass": true,
+  "filesChanged": [],
+  "docsUpdated": [],
+  "docsReviewed": ["docs/database-migrations.md", "README.md"],
+  "explanation": "The requested functionality already exists with:\n- Migration: backend/alembic/versions/002_add_game_results.py creates the game_results table with id, game_id (FK unique), winner_country_id (FK), winner_player_id (FK), duration_rounds, finished_at, and final_rankings columns\n- Model: backend/app/models/models.py:150-164 defines GameResult with relationships to Game, SpawnedCountry, and Player\n- Schema: backend/app/schemas/schemas.py:124-134 defines the Pydantic GameResult schema\n- Bidirectional relationship: Game.game_result (models.py:55) links Game back to GameResult\n- The review feedback about broadcast_event() has already been addressed - it is already async (game_broadcast.py:222-229) and Optional is used (line 98)"
+}
