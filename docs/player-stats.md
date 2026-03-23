@@ -2,7 +2,7 @@
 
 ## Overview
 
-The stats UI provides players with game history, personal statistics, and a global leaderboard ranking all players by wins.
+The player stats system tracks performance across completed games and provides a global leaderboard ranking all players by wins.
 
 ## Routes
 
@@ -78,6 +78,8 @@ Returns a player's stats and recent game history (up to 20 games).
 }
 ```
 
+**Error:** Returns 404 if the player does not exist.
+
 ## TypeScript Types
 
 Defined in `frontend/src/types/index.ts`:
@@ -85,3 +87,7 @@ Defined in `frontend/src/types/index.ts`:
 - `PlayerStatsData` — Player stats response including history array
 - `GameHistoryEntry` — Single game result in history
 - `GlobalLeaderboardEntry` — Leaderboard row data
+
+## Data Source
+
+Stats are computed from `GameResult` records, which are automatically created when a game reaches the `completed` phase. The `winner_player_id` field and `final_rankings` JSON field contain placement, score, and breakdown for each player in the game.

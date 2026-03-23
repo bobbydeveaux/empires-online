@@ -221,6 +221,8 @@ docker-compose down
 - [x] Player stats page with game history and global leaderboard
 - [ ] Create comprehensive API documentation
 - [x] Implement game spectator mode (backend: spectator WebSocket connections, POST /spectate endpoint, spectator_count in game listings; frontend: spectate button in lobby, read-only spectator view with live updates)
+- [x] Player stats page with game history and performance metrics
+- [x] Global leaderboard across all completed games
 
 ### Phase 3 - Polish (📋 Future)
 - [ ] Add AI opponents for single-player practice
@@ -273,3 +275,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - See [DESIGN.md](DESIGN.md) for complete game rules, API specifications, and implementation details
 - See [COPILOT_INSTRUCTIONS.md](COPILOT_INSTRUCTIONS.md) for development guidelines and architecture decisions
 - See [docs/websocket-api.md](docs/websocket-api.md) for WebSocket API and frontend hook documentation
+- See [docs/player-stats.md](docs/player-stats.md) for player stats and global leaderboard documentation

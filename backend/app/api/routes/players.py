@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 
 from app.core.database import get_db
 from app.models.models import Player, Country, GameResult, SpawnedCountry, Game
@@ -74,6 +75,7 @@ def get_global_leaderboard(db: Session = Depends(get_db)) -> List[Dict[str, Any]
 
     leaderboard.sort(key=lambda x: (-x["wins"], -x["win_rate"], x["username"]))
     return leaderboard
+
 
 
 @router.get("/", response_model=List[PlayerSchema])
