@@ -83,6 +83,13 @@ These messages are broadcast from REST endpoints when game state changes occur, 
 | `game_completed` | `{"game_id", "leaderboard": [...]}` | The game ended; includes the final leaderboard |
 | `game_state_update` | `{"game_id", "game_state?": GameState}` | Full game state push after actions and phase transitions |
 
+#### Trade Events
+
+| Type | Payload | Description |
+|------|---------|-------------|
+| `trade_proposed` | `{"game_id", "trade": TradeOffer}` | A new trade offer was proposed |
+| `trade_resolved` | `{"game_id", "trade": TradeOffer}` | A trade was accepted, rejected, or cancelled (check `trade.status`) |
+
 #### Reserved / Future Server → Client
 
 | Type | Payload | Description |
@@ -132,7 +139,7 @@ ws.onmessage = (event) => {
 All WebSocket message types are defined in `frontend/src/types/index.ts` as a discriminated union on the `type` field:
 
 - **`WsClientMessage`** — union of messages the client can send (`ping`, `chat`)
-- **`WsServerMessage`** — union of messages the server can send (`player_joined`, `player_left`, `pong`, `chat`, `error`, `game_state_update`, `round_changed`)
+- **`WsServerMessage`** — union of messages the server can send (`player_joined`, `player_left`, `pong`, `chat`, `error`, `game_state_update`, `round_changed`, `trade_proposed`, `trade_resolved`)
 
 ### `useGameWebSocket` Hook
 
