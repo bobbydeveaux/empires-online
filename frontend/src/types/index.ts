@@ -177,3 +177,35 @@ export type WsServerMessage =
 
 // WebSocket connection status
 export type WsConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
+
+// Player stats types
+export interface PlayerStats {
+  player_id: number;
+  username: string;
+  created_at: string | null;
+  games_played: number;
+  wins: number;
+  average_score: number;
+  best_score: number;
+  favorite_country: string | null;
+  countries_played: Record<string, number>;
+  game_history: PlayerGameHistory[];
+}
+
+export interface PlayerGameHistory {
+  game_id: number;
+  placement: number;
+  score: number;
+  country_name: string;
+  duration_rounds: number;
+  finished_at: string | null;
+}
+
+export interface GlobalLeaderboardEntry {
+  player_id: number;
+  player_name: string;
+  games_played: number;
+  wins: number;
+  average_score: number;
+  best_score: number;
+}

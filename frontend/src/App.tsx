@@ -6,6 +6,7 @@ import Register from './pages/Register';
 import GameLobby from './pages/GameLobby';
 import Game from './pages/Game';
 import SpectatorView from './pages/SpectatorView';
+import StatsPage from './pages/PlayerStats';
 import Navbar from './components/Navbar';
 import { ToastProvider } from './components/Toast';
 import './App.css';
@@ -62,6 +63,16 @@ const App: React.FC = () => {
                 <Route path="/spectate/:gameId" element={
                   <ProtectedRoute>
                     <SpectatorView />
+                  </ProtectedRoute>
+                } />
+                <Route path="/stats" element={
+                  <ProtectedRoute>
+                    <StatsPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/stats/:playerId" element={
+                  <ProtectedRoute>
+                    <StatsPage />
                   </ProtectedRoute>
                 } />
                 <Route path="/" element={<HomePage />} />
