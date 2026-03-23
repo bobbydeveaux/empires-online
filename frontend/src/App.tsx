@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import GameLobby from './pages/GameLobby';
 import Game from './pages/Game';
+import SpectateGame from './pages/SpectateGame';
 import Navbar from './components/Navbar';
 import { ToastProvider } from './components/Toast';
 import './App.css';
@@ -56,6 +57,11 @@ const App: React.FC = () => {
                 <Route path="/game/:gameId" element={
                   <ProtectedRoute>
                     <Game />
+                  </ProtectedRoute>
+                } />
+                <Route path="/spectate/:gameId" element={
+                  <ProtectedRoute>
+                    <SpectateGame />
                   </ProtectedRoute>
                 } />
                 <Route path="/" element={<HomePage />} />

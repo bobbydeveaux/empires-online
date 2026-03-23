@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { GameState, WsServerMessage, WsConnectionStatus } from '../types';
+import { GameState, WsClientMessage, WsServerMessage, WsConnectionStatus } from '../types';
 import { gamesAPI, getWebSocketUrl } from '../services/api';
 
 const INITIAL_RECONNECT_DELAY = 1000;
@@ -13,6 +13,8 @@ interface UseGameWebSocketOptions {
   token: string | null;
   /** Called when a WebSocket message is received. */
   onMessage?: (message: WsServerMessage) => void;
+  /** When true, connects in read-only mode using the spectator token. Outbound action messages are rejected. */
+  isSpectator?: boolean;
 }
 
 interface UseGameWebSocketReturn {
@@ -24,12 +26,17 @@ interface UseGameWebSocketReturn {
   reconnect: () => void;
   /** Manually refresh game state via REST. */
   refreshGameState: () => Promise<void>;
+  /** Send a message over the WebSocket. Returns false if in spectator mode. */
+  sendMessage: (message: WsClientMessage) => boolean;
+  /** Whether this connection is in spectator (read-only) mode. */
+  isSpectator: boolean;
 }
 
 export function useGameWebSocket({
   gameId,
   token,
   onMessage,
+  isSpectator = false,
 }: UseGameWebSocketOptions): UseGameWebSocketReturn {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<WsConnectionStatus>('disconnected');
@@ -164,6 +171,18 @@ export function useGameWebSocket({
     };
   }, [gameId, token, closeConnection, fetchGameState, clearTimers, scheduleReconnect]);
 
+  // Send a message over the WebSocket (rejected in spectator mode)
+  const sendMessage = useCallback((message: WsClientMessage): boolean => {
+    if (isSpectator) {
+      return false;
+    }
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(message));
+      return true;
+    }
+    return false;
+  }, [isSpectator]);
+
   // Manual reconnect
   const reconnect = useCallback(() => {
     reconnectDelayRef.current = INITIAL_RECONNECT_DELAY;
@@ -187,5 +206,7 @@ export function useGameWebSocket({
     connectionStatus,
     reconnect,
     refreshGameState: fetchGameState,
+    sendMessage,
+    isSpectator,
   };
 }

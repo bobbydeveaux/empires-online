@@ -54,6 +54,12 @@ export interface GameState {
   game: Game;
   players: SpawnedCountryWithDetails[];
   leaderboard: LeaderboardEntry[];
+  spectator_count?: number;
+}
+
+export interface SpectateTokenResponse {
+  spectator_token: string;
+  game_id: number;
 }
 
 export interface LeaderboardEntry {

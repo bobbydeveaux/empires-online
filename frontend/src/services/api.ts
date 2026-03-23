@@ -8,7 +8,8 @@ import {
   ActionResult,
   GameAction,
   LeaderboardEntry,
-  AuthToken
+  AuthToken,
+  SpectateTokenResponse
 } from '../types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
@@ -122,6 +123,11 @@ export const gamesAPI = {
 
   getLeaderboard: async (gameId: number): Promise<LeaderboardEntry[]> => {
     const response = await api.get(`/games/${gameId}/leaderboard`);
+    return response.data;
+  },
+
+  spectateGame: async (gameId: number): Promise<SpectateTokenResponse> => {
+    const response = await api.post(`/games/${gameId}/spectate`);
     return response.data;
   }
 };
