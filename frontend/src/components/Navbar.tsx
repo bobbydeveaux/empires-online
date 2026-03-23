@@ -24,7 +24,7 @@ const Navbar: React.FC = () => {
               Game Lobby
             </Link>
             <Link to="/stats" className="navbar-link">
-              Leaderboard
+              Stats
             </Link>
             <span>Welcome, {user.username}!</span>
             <button onClick={handleLogout} className="navbar-logout">

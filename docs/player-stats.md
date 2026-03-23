@@ -2,76 +2,77 @@
 
 ## Overview
 
-The player stats system tracks performance across completed games and provides a global leaderboard ranking all players.
+The player stats system tracks performance across completed games and provides a global leaderboard ranking all players by wins.
 
-## Pages & Components
+## Routes
 
-### Global Leaderboard (`/stats`)
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/stats` | `PlayerStats` | Current user's stats (protected) |
+| `/stats/:playerId` | `PlayerStats` | Specific player's stats (protected) |
 
-Displays all players ranked by wins (primary) then average score (secondary). Each row links to the player's detailed stats page.
+## Navigation
 
-**Columns:** Rank, Player, Wins, Games Played, Win Rate, Average Score, Best Score
+- **Navbar**: "Stats" link visible when authenticated
+- **Game Lobby**: "History & Stats" button in the page header
+- **Leaderboard rows**: Click a player row to view their stats
 
-The leaderboard is accessible from the navbar ("Leaderboard" link) and requires authentication.
+## Frontend Components
 
-### Player Stats Page (`/stats/:playerId`)
+### `PlayerStats` (`pages/PlayerStats.tsx`)
 
-Shows detailed statistics for a single player:
+The main stats page with two tabs:
 
-- **Summary cards**: Games Played, Wins (with win rate), Best Score
-- **Performance panel**: Average Score, Favorite Country, Member Since date
-- **Countries Played**: Breakdown of how many games played with each country
-- **Game History table**: All completed games with placement, score, country, rounds, and date
+- **My Stats tab**: Shows a stats overview (games played, wins, losses, win rate) and a recent games history table.
+- **Leaderboard tab**: Renders the `GlobalLeaderboard` component.
 
-## API Endpoints
+Accepts an optional `playerId` URL parameter. If omitted, defaults to the current authenticated user.
+
+### `GlobalLeaderboard` (`components/GlobalLeaderboard.tsx`)
+
+Displays all players who have completed at least one game, ranked by wins (then win rate). Each row is clickable and navigates to that player's stats page.
+
+## Backend API
 
 ### `GET /api/players/leaderboard`
 
-Returns the global leaderboard across all completed games.
+Returns an array of players ranked by wins. Only includes players with at least one completed game.
 
 **Response:**
 ```json
 [
   {
     "player_id": 1,
-    "player_name": "alice",
-    "games_played": 5,
-    "wins": 3,
-    "average_score": 24.5,
-    "best_score": 30
+    "username": "alice",
+    "games_played": 10,
+    "wins": 7,
+    "losses": 3,
+    "win_rate": 70.0
   }
 ]
 ```
 
-Sorted by wins descending, then average score descending.
-
 ### `GET /api/players/{player_id}/stats`
 
-Returns detailed stats for a specific player.
+Returns a player's stats and recent game history (up to 20 games).
 
 **Response:**
 ```json
 {
   "player_id": 1,
   "username": "alice",
-  "created_at": "2026-01-15T10:30:00",
-  "games_played": 5,
-  "wins": 3,
-  "average_score": 24.5,
-  "best_score": 30,
-  "favorite_country": "England",
-  "countries_played": {
-    "England": 3,
-    "France": 2
-  },
-  "game_history": [
+  "games_played": 10,
+  "wins": 7,
+  "losses": 3,
+  "win_rate": 70.0,
+  "history": [
     {
-      "game_id": 10,
-      "placement": 1,
-      "score": 30,
+      "game_id": 42,
       "country_name": "England",
-      "duration_rounds": 5,
-      "finished_at": "2026-03-20T15:00:00"
+      "rounds": 5,
+      "placement": 1,
+      "won": true,
+      "finished_at": "2024-06-15T12:00:00"
     }
   ]
 }
@@ -79,20 +80,14 @@ Returns detailed stats for a specific player.
 
 **Error:** Returns 404 if the player does not exist.
 
-## Frontend Components
+## TypeScript Types
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| `StatsPage` | `frontend/src/pages/PlayerStats.tsx` | Route handler that renders either the leaderboard or player detail |
-| `GlobalLeaderboard` | `frontend/src/components/GlobalLeaderboard.tsx` | Reusable leaderboard table component |
+Defined in `frontend/src/types/index.ts`:
 
-## Routes
-
-| Path | Component | Description |
-|------|-----------|-------------|
-| `/stats` | `StatsPage` | Global leaderboard view |
-| `/stats/:playerId` | `StatsPage` | Individual player stats view |
+- `PlayerStatsData` — Player stats response including history array
+- `GameHistoryEntry` — Single game result in history
+- `GlobalLeaderboardEntry` — Leaderboard row data
 
 ## Data Source
 
-Stats are computed from `GameResult` records, which are automatically created when a game reaches the `completed` phase. The `final_rankings` JSON field contains placement, score, and breakdown for each player in the game.
+Stats are computed from `GameResult` records, which are automatically created when a game reaches the `completed` phase. The `winner_player_id` field and `final_rankings` JSON field contain placement, score, and breakdown for each player in the game.

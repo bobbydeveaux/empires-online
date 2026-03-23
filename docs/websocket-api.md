@@ -34,8 +34,8 @@ Invalid or missing tokens result in a close with code `1008` (Policy Violation).
 6. On disconnect, a `player_left` message is broadcast
 
 ### Spectator connection
-1. Client connects with a valid JWT token to the `/spectate` endpoint
-2. Server validates the token and looks up the user
+1. Client obtains a spectator token via `POST /api/games/{game_id}/spectate`
+2. Client connects with the spectator token to the `/spectate` endpoint (contains `is_spectator: true` claim)
 3. Connection is accepted and added to the game room as a spectator
 4. A `spectator_joined` message (with `spectator_count`) is broadcast to the room
 5. Spectator receives all game state broadcasts
@@ -82,6 +82,13 @@ These messages are broadcast from REST endpoints when game state changes occur, 
 | `round_advanced` | `{"game_id", "round", "phase"}` | The game advanced to a new round |
 | `game_completed` | `{"game_id", "leaderboard": [...]}` | The game ended; includes the final leaderboard |
 | `game_state_update` | `{"game_id", "game_state?": GameState}` | Full game state push after actions and phase transitions |
+
+#### Trade Events
+
+| Type | Payload | Description |
+|------|---------|-------------|
+| `trade_proposed` | `{"game_id", "trade": TradeOffer}` | A new trade offer was proposed |
+| `trade_resolved` | `{"game_id", "trade": TradeOffer, "resolution": "accepted"\|"rejected"\|"cancelled"}` | A trade was accepted, rejected, or cancelled |
 
 #### Reserved / Future Server → Client
 
@@ -132,7 +139,7 @@ ws.onmessage = (event) => {
 All WebSocket message types are defined in `frontend/src/types/index.ts` as a discriminated union on the `type` field:
 
 - **`WsClientMessage`** — union of messages the client can send (`ping`, `chat`)
-- **`WsServerMessage`** — union of messages the server can send (`player_joined`, `player_left`, `pong`, `chat`, `error`, `game_state_update`, `round_changed`)
+- **`WsServerMessage`** — union of messages the server can send (`player_joined`, `player_left`, `pong`, `chat`, `error`, `game_state_update`, `round_changed`, `trade_proposed`, `trade_resolved`)
 
 ### `useGameWebSocket` Hook
 
@@ -141,10 +148,11 @@ The `useGameWebSocket` hook (`frontend/src/hooks/useGameWebSocket.ts`) provides 
 ```typescript
 import { useGameWebSocket } from '../hooks/useGameWebSocket';
 
-const { gameState, connectionStatus, reconnect, refreshGameState } = useGameWebSocket({
+const { gameState, connectionStatus, reconnect, refreshGameState, sendMessage, isSpectator, trades, refreshTrades } = useGameWebSocket({
   gameId: 1,
   token: 'jwt-token',
   onMessage: (msg) => console.log(msg),
+  isSpectator: false, // optional, defaults to false
 });
 ```
 
@@ -153,16 +161,39 @@ const { gameState, connectionStatus, reconnect, refreshGameState } = useGameWebS
 - `connectionStatus` — `'connecting' | 'connected' | 'disconnected' | 'reconnecting'`
 - `reconnect()` — Manually trigger a reconnect
 - `refreshGameState()` — Manually fetch fresh state via REST
+- `sendMessage(msg)` — Send a `WsClientMessage` over the WebSocket. Returns `false` if in spectator mode or not connected.
+- `isSpectator` — Whether this connection is in spectator (read-only) mode
+- `trades` — Array of active `TradeOffer` objects for the current game
+- `refreshTrades()` — Manually refresh trades from REST
 
 **Behavior:**
 - Connects to `WS /ws/{gameId}?token=<jwt>` on mount
 - Fetches full game state via REST on connect and reconnect
 - On `game_state_update`, applies the included `game_state` directly (or refetches via REST if absent)
 - Refetches state when `player_joined`, `player_left`, or `round_changed` messages arrive
+- On `trade_proposed`, adds the trade to the local trades list
+- On `trade_resolved`, removes the trade from the local list and refetches game state if accepted
 - Implements exponential backoff reconnection (1s, 2s, 4s, ... up to 30s max)
 - Does not reconnect on auth failure (close code 1008)
 - Sends ping keepalive every 25 seconds
 - Cleans up on unmount
+- **Spectator mode**: When `isSpectator` is `true`, `sendMessage()` always returns `false` and no outbound messages are sent
+
+### Spectator Mode
+
+Spectators can watch a game in real-time without participating:
+
+1. Call `POST /games/{gameId}/spectate` to get a spectator token
+2. Connect to the WebSocket using the spectator token
+3. The `useGameWebSocket` hook with `isSpectator: true` prevents sending action messages
+
+**Route:** `/spectate/:gameId` — Protected route that renders a read-only game view.
+
+**API:** `gamesAPI.spectateGame(gameId)` — Returns `{ spectator_token, game_id }`.
+
+**Types:**
+- `GameState.spectator_count` — Optional field indicating how many spectators are watching
+- `SpectateTokenResponse` — Response type from the spectate endpoint
 
 ### WebSocket URL Utilities
 
@@ -219,7 +250,7 @@ The spectator token is a standard JWT with an additional `is_spectator: true` cl
 
 ## Architecture
 
-- **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms, with separate tracking for players and spectators. Supports connect, disconnect, join_room, join_room_as_spectator, leave_room, broadcast_to_room (reaches both players and spectators), and spectator_count tracking. Includes PostgreSQL NOTIFY/LISTEN support for cross-process event fanout.
+- **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms, with separate tracking for players and spectators. Supports connect, disconnect, connect_spectator, disconnect_spectator, join_room, join_room_as_spectator, leave_room, broadcast_to_room (reaches both players and spectators), is_spectator, and get_spectator_count. Includes PostgreSQL NOTIFY/LISTEN support for cross-process event fanout.
 - **GameBroadcast** (`backend/app/services/game_broadcast.py`): Provides message builders for each game event type (including `game_state_update` with full game state) and an async `broadcast_event()` function used as a FastAPI `BackgroundTask`.
 - **WebSocket Route** (`backend/app/api/routes/ws.py`): Handles the `/ws/{game_id}` player endpoint and `/ws/{game_id}/spectate` spectator endpoint. Both require JWT validation. Spectators can only send `ping`; all other messages are rejected with a 403 error.
 - **Game REST Routes** (`backend/app/api/routes/games.py`): State-changing endpoints (join, start, develop, actions, end-actions, next-round) broadcast game events via `BackgroundTasks` after committing database changes. The end-actions endpoint triggers auto phase transitions when all players complete.

@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import GameLobby from './pages/GameLobby';
 import Game from './pages/Game';
+import PlayerStats from './pages/PlayerStats';
 import SpectatorView from './pages/SpectatorView';
 import StatsPage from './pages/PlayerStats';
 import Navbar from './components/Navbar';
@@ -58,6 +59,16 @@ const App: React.FC = () => {
                 <Route path="/game/:gameId" element={
                   <ProtectedRoute>
                     <Game />
+                  </ProtectedRoute>
+                } />
+                <Route path="/stats" element={
+                  <ProtectedRoute>
+                    <PlayerStats />
+                  </ProtectedRoute>
+                } />
+                <Route path="/stats/:playerId" element={
+                  <ProtectedRoute>
+                    <PlayerStats />
                   </ProtectedRoute>
                 } />
                 <Route path="/spectate/:gameId" element={
