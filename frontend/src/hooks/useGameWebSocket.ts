@@ -13,6 +13,8 @@ interface UseGameWebSocketOptions {
   token: string | null;
   /** Called when a WebSocket message is received. */
   onMessage?: (message: WsServerMessage) => void;
+  /** Called when a trade toast notification should be shown. */
+  onTradeNotification?: (message: string, variant: 'success' | 'error' | 'info') => void;
   /** When true, connects in read-only mode using the spectator token. Outbound action messages are rejected. */
   isSpectator?: boolean;
 }
@@ -20,6 +22,8 @@ interface UseGameWebSocketOptions {
 interface UseGameWebSocketReturn {
   /** Current game state (fetched via REST, kept in sync by WS events). */
   gameState: GameState | null;
+  /** Active (pending) trades for the current game. */
+  trades: TradeOffer[];
   /** WebSocket connection status. */
   connectionStatus: WsConnectionStatus;
   /** Manually trigger a reconnect. */
@@ -30,8 +34,6 @@ interface UseGameWebSocketReturn {
   sendMessage: (message: WsClientMessage) => boolean;
   /** Whether this connection is in spectator (read-only) mode. */
   isSpectator: boolean;
-  /** Active trades for this game, updated via WebSocket. */
-  trades: TradeOffer[];
   /** Refresh trades from REST. */
   refreshTrades: () => Promise<void>;
 }
@@ -40,11 +42,12 @@ export function useGameWebSocket({
   gameId,
   token,
   onMessage,
+  onTradeNotification,
   isSpectator = false,
 }: UseGameWebSocketOptions): UseGameWebSocketReturn {
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<WsConnectionStatus>('disconnected');
   const [trades, setTrades] = useState<TradeOffer[]>([]);
+  const [connectionStatus, setConnectionStatus] = useState<WsConnectionStatus>('disconnected');
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY);
@@ -53,6 +56,8 @@ export function useGameWebSocket({
   const mountedRef = useRef(true);
   const onMessageRef = useRef(onMessage);
   onMessageRef.current = onMessage;
+  const onTradeNotificationRef = useRef(onTradeNotification);
+  onTradeNotificationRef.current = onTradeNotification;
 
   // Fetch full game state via REST
   const fetchGameState = useCallback(async () => {
@@ -168,22 +173,31 @@ export function useGameWebSocket({
             fetchGameState();
             break;
           case 'trade_proposed':
-            // Add or update the trade in our local list
-            setTrades(prev => {
-              const existing = prev.findIndex(t => t.id === message.trade.id);
-              if (existing >= 0) {
-                const updated = [...prev];
-                updated[existing] = message.trade;
-                return updated;
-              }
-              return [...prev, message.trade];
-            });
+            setTrades(prev => [...prev, message.trade]);
+            onTradeNotificationRef.current?.(
+              `New trade proposal received (Trade #${message.trade.id})`,
+              'info',
+            );
             break;
           case 'trade_resolved':
-            // Remove resolved trade from active list and refresh game state
             setTrades(prev => prev.filter(t => t.id !== message.trade.id));
             if (message.resolution === 'accepted') {
+              onTradeNotificationRef.current?.(
+                `Trade #${message.trade.id} was accepted`,
+                'success',
+              );
+              // Resource balances changed — re-fetch game state
               fetchGameState();
+            } else if (message.resolution === 'rejected') {
+              onTradeNotificationRef.current?.(
+                `Trade #${message.trade.id} was rejected`,
+                'error',
+              );
+            } else {
+              onTradeNotificationRef.current?.(
+                `Trade #${message.trade.id} was cancelled`,
+                'info',
+              );
             }
             break;
           // pong, chat, error — no state refresh needed
@@ -241,12 +255,12 @@ export function useGameWebSocket({
 
   return {
     gameState,
+    trades,
     connectionStatus,
     reconnect,
     refreshGameState: fetchGameState,
     sendMessage,
     isSpectator,
-    trades,
     refreshTrades: fetchTrades,
   };
 }

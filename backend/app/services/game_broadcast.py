@@ -6,7 +6,7 @@ to be scheduled as FastAPI BackgroundTasks from synchronous REST handlers.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from app.services.ws_manager import manager
 
