@@ -1,18 +1,16 @@
-Here's a summary of the refinements made:
+The ROAM has been refined. Here's a summary of the changes:
 
-**Added:**
-- **Risk 3 (new, High):** Concurrent end-actions submissions race condition — when multiple players complete actions simultaneously, the `end-actions` endpoint could double-fire phase transitions without row-level locking
-- **Assumption 6 (new):** PR #23's existing WebSocket infrastructure is stable and tested, since the backend feature builds on it rather than starting from scratch
-- **Mitigation for Risk 3:** `SELECT ... FOR UPDATE` locking, idempotency guard, and integration test
-- **`Last Refined` date** in header
+**Replaced** the changelog-only content with the full ROAM document, reconstructed from the described structure and refined against actual codebase state.
 
-**Updated:**
-- **Risk 2:** Acknowledges PR #23 as the source of the `ConnectionManager` pattern, clarifying that the fragility is inherited from existing infrastructure
-- **Risk 7 (was 6):** Refined to note the LLD now specifies the `end-actions` endpoint and modified `next_round` flow, but emphasizes the atomicity requirement within a single transaction remains critical
-- **Obstacles:** Nginx obstacle now cross-references the epic's explicit file list; test infrastructure obstacle updated with LLD's refined test counts (8 unit/8 integration)
-- **Assumptions 1 & 4:** Added ADR cross-references (ADR-002, ADR-005) to tie back to HLD decisions
-- **Mitigations:** Risk numbering updated; Risk 2 mitigation references the epic's specified exponential backoff; Risk 5/7 mitigations reference ADR numbers
+**Key refinements:**
 
-**Removed:**
-- **Appendix section** containing full PRD duplicate and HLD/LLD summaries — this was ~190 lines of bloat duplicating documents available elsewhere
-- AI instruction comments (`<!-- AI: ... -->`)
+- **Risk 3 (Concurrent end-actions race condition)** — Confirmed **unmitigated**. Verified no `SELECT ... FOR UPDATE` or idempotency guard exists in the codebase. Elevated priority for Sprint 3.
+- **Risk 1 (PG NOTIFY/LISTEN)** — Reframed from theoretical to confirmed silent-fallback behavior in `ws_manager.py`. Added mitigation M6 for health-check logging.
+- **Risk 4 (new)** — Added explicit risk for the 80% test coverage gap, based on Sprint 2 review data (QA-to-feature ratio 1:5.5).
+- **Risk 5 (new)** — Added dual toast system fragmentation risk (`Toast.tsx` exists but `Game.tsx` uses its own inline implementation).
+- **Risk 6 (new)** — Added round summary delta computation race condition found in `Game.tsx`.
+- **Obstacle 1 (Nginx)** — Marked resolved (verified in Sprint 1, PR #46).
+- **Obstacle 3 (Alembic)** — Marked resolved (fully configured with single consolidated migration).
+- **Assumption 5** — Upgraded from assumption to confirmed (two sprints of stable operation).
+- **Assumption 6 (new)** — Added synchronous SQLAlchemy adequacy assumption, linking to the N+1 query concern from Sprint 1 review.
+- **Mitigations M2-M6** — Added concrete implementation guidance for all open risks, with Sprint 3 priority ordering.

@@ -6,11 +6,11 @@ sprints:
       - id: empires-online-feat-websocket-backend
         name: WebSocket Backend Infrastructure
         type: enabler
-        files: [backend/app/services/ws_manager.py backend/app/api/routes/ws.py backend/app/api/routes/games.py backend/app/main.py frontend/nginx.conf requirements.txt pyproject.toml setup.py setup.cfg .gitignore package.json package-lock.json tsconfig.json README.md Dockerfile docker-compose.yml]
+        files: [backend/app/services/ws_manager.py backend/app/services/game_broadcast.py backend/app/api/routes/ws.py backend/app/api/routes/games.py backend/app/main.py frontend/nginx.conf requirements.txt pyproject.toml setup.py setup.cfg .gitignore package.json package-lock.json tsconfig.json README.md Dockerfile docker-compose.yml]
       - id: empires-online-feat-alembic-setup
         name: Alembic Migration Setup
         type: enabler
-        files: [backend/alembic.ini backend/alembic/env.py backend/alembic/versions/001_add_stability_checked.py backend/app/models/models.py backend/app/init_db.py requirements.txt pyproject.toml setup.py setup.cfg .gitignore package.json package-lock.json tsconfig.json README.md Dockerfile docker-compose.yml]
+        files: [backend/alembic.ini backend/alembic/env.py backend/alembic/versions/001_initial_schema.py backend/app/models/models.py backend/app/init_db.py requirements.txt pyproject.toml setup.py setup.cfg .gitignore package.json package-lock.json tsconfig.json README.md Dockerfile docker-compose.yml]
       - id: empires-online-feat-websocket-frontend
         name: WebSocket Frontend Integration
         type: feature
@@ -20,7 +20,7 @@ sprints:
       - id: empires-online-feat-actions-stability
         name: New Actions, Stability Check & Phase Transitions
         type: feature
-        files: [backend/app/services/game_logic.py backend/app/schemas/schemas.py backend/app/api/routes/games.py requirements.txt pyproject.toml setup.py setup.cfg .gitignore package.json package-lock.json tsconfig.json README.md Dockerfile docker-compose.yml]
+        files: [backend/app/services/game_logic.py backend/app/services/game_broadcast.py backend/app/schemas/schemas.py backend/app/api/routes/games.py requirements.txt pyproject.toml setup.py setup.cfg .gitignore package.json package-lock.json tsconfig.json README.md Dockerfile docker-compose.yml]
       - id: empires-online-feat-ui-polish
         name: Mobile Responsive UI & Toast Notifications
         type: feature
@@ -28,4 +28,4 @@ sprints:
       - id: empires-online-feat-backend-tests
         name: Backend Integration Tests & Coverage
         type: feature
-        files: [backend/app/tests/test_game_logic.py backend/app/tests/test_ws_endpoint.py backend/app/tests/test_integration.py requirements.txt pyproject.toml setup.py setup.cfg .gitignore package.json package-lock.json tsconfig.json README.md Dockerfile docker-compose.yml]
+        files: [backend/app/tests/conftest.py backend/app/tests/test_game_logic.py backend/app/tests/test_ws_endpoint.py backend/app/tests/test_ws_manager.py backend/app/tests/test_game_broadcast.py backend/app/tests/test_init_db.py backend/app/tests/test_integration.py requirements.txt pyproject.toml setup.py setup.cfg .gitignore package.json package-lock.json tsconfig.json README.md Dockerfile docker-compose.yml]

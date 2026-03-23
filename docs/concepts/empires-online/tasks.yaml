@@ -1,334 +1,421 @@
-GeneratedAt: "2026-03-17T10:46:59Z"
+GeneratedAt: "2026-03-23T21:54:45Z"
 Plan: empires-online-plan
 Sprints:
 - Features:
-  - FeatureID: empires-online-feat-websocket-backend
-    FeatureTitle: WebSocket Backend Infrastructure
+  - FeatureID: empires-online-feat-trading-api
+    FeatureTitle: Player Trading API
     Tasks:
     - AcceptanceCriteria:
-      - WebSocket manager subscribes to PostgreSQL NOTIFY channel on startup
-      - Events published via NOTIFY are received and broadcast to all local WebSocket
-        connections in the relevant room
-      - Multiple backend processes fan out events correctly via PG channel
+      - Trade model defined in models.py with all specified columns and relationships
+      - Alembic migration 002_add_trades.py creates the trades table with foreign
+        keys to games and spawned_countries
+      - Migration runs successfully forward and backward (upgrade/downgrade)
       AgentType: backend-engineer
       Dependencies: []
-      Description: Extend the existing ws_manager.py to add PostgreSQL NOTIFY/LISTEN
-        for cross-process event fanout. Add a listener that subscribes to a PG channel
-        and broadcasts received events to local WebSocket connections. Add a notify
-        helper that game endpoints can call to publish state changes.
-      EstimatedEffort: M
-      Files:
-      - backend/app/services/ws_manager.py
-      - backend/app/main.py
-      ID: task-empires-online-feat-websocket-backend-1
-      Title: Extend WebSocket manager with PostgreSQL NOTIFY/LISTEN
-    - AcceptanceCriteria:
-      - POST to develop, perform-action, and next-round endpoints triggers a WebSocket
-        broadcast of updated game state
-      - Connected clients receive state update messages with correct game data
-      - WebSocket message types are well-defined and consistent across endpoints
-      AgentType: backend-engineer
-      Dependencies:
-      - task-empires-online-feat-websocket-backend-1
-      Description: Modify the develop, perform-action, and next-round REST endpoints
-        in games.py to broadcast updated game state via the WebSocket manager after
-        each state change. Define WebSocket message types for state updates and use
-        the PG NOTIFY helper to push changes to all connected clients.
-      EstimatedEffort: M
-      Files:
-      - backend/app/api/routes/games.py
-      - backend/app/api/routes/ws.py
-      ID: task-empires-online-feat-websocket-backend-2
-      Title: Integrate game state broadcasting into REST endpoints
-    - AcceptanceCriteria:
-      - Nginx proxies WebSocket connections at /ws/ with correct Upgrade and Connection
-        headers
-      - proxy_read_timeout is configured to prevent premature connection drops
-      - WebSocket connections work end-to-end through Nginx
-      AgentType: devops-engineer
-      Dependencies: []
-      Description: Add Nginx configuration for the /ws/ location to support WebSocket
-        upgrades. Set appropriate proxy headers (Upgrade, Connection), configure proxy_read_timeout
-        for long-lived connections, and ensure the proxy passes to the backend WebSocket
-        endpoint.
+      Description: Create the Trade SQLAlchemy model in models.py with all required
+        columns (id, game_id, proposer_country_id, receiver_country_id, offer_gold,
+        offer_people, offer_territory, request_gold, request_people, request_territory,
+        status, created_at). Add relationships to SpawnedCountry and Game. Create
+        Alembic migration 002_add_trades.py that adds the trades table with appropriate
+        foreign keys and indexes.
       EstimatedEffort: S
       Files:
-      - frontend/nginx.conf
-      ID: task-empires-online-feat-websocket-backend-3
-      Title: Configure Nginx WebSocket proxy
-  - FeatureID: empires-online-feat-websocket-frontend
-    FeatureTitle: WebSocket Frontend Integration
+      - backend/app/models/models.py
+      - backend/alembic/versions/002_add_trades.py
+      ID: task-empires-online-feat-trading-api-1
+      Title: Add Trade database model and Alembic migration
+    - AcceptanceCriteria:
+      - TradePropose, TradeResponse schemas defined in schemas.py with proper validation
+      - GameState schema includes trade_allowed flag
+      - Schemas align with Trade model fields and REST endpoint requirements
+      AgentType: backend-engineer
+      Dependencies:
+      - task-empires-online-feat-trading-api-1
+      Description: 'Create Pydantic schemas for trade operations: TradePropose (input
+        for proposing a trade with offer/request resources), TradeResponse (output
+        with full trade details and status), and TradeList for listing pending trades.
+        Add trade_allowed boolean flag to the GameState schema so the frontend knows
+        when trading is enabled.'
+      EstimatedEffort: S
+      Files:
+      - backend/app/schemas/schemas.py
+      ID: task-empires-online-feat-trading-api-2
+      Title: Add Trade Pydantic schemas and trade_allowed flag to GameState
+    - AcceptanceCriteria:
+      - propose_trade validates resource availability and prevents self-trading
+      - accept_trade atomically transfers resources between both parties and updates
+        trade status
+      - reject_trade updates trade status and only the receiver can reject
+      - All methods raise clear errors for invalid operations (insufficient resources,
+        wrong game phase, invalid trade ID)
+      AgentType: backend-engineer
+      Dependencies:
+      - task-empires-online-feat-trading-api-1
+      - task-empires-online-feat-trading-api-2
+      Description: 'Create TradeService in trade_service.py with propose_trade(),
+        accept_trade(), and reject_trade() methods. Implement validation rules: cannot
+        offer more resources than you have, cannot trade with yourself, can only trade
+        in valid game phases, trades must target an existing player in the same game.
+        On acceptance, atomically transfer resources between proposer and receiver.'
+      EstimatedEffort: M
+      Files:
+      - backend/app/services/trade_service.py
+      ID: task-empires-online-feat-trading-api-3
+      Title: Implement TradeService with propose, accept, reject logic
+    - AcceptanceCriteria:
+      - All four REST endpoints functional with proper auth, validation, and error
+        responses
+      - Trade acceptance triggers WebSocket broadcast to all players in the game
+      - Trades router registered in main.py under /api/games prefix
+      - GET endpoint returns only pending trades for the given game
+      AgentType: backend-engineer
+      Dependencies:
+      - task-empires-online-feat-trading-api-2
+      - task-empires-online-feat-trading-api-3
+      Description: 'Create trades.py route file with four endpoints: POST /games/{game_id}/trades
+        (propose), POST /games/{game_id}/trades/{trade_id}/accept, POST /games/{game_id}/trades/{trade_id}/reject,
+        GET /games/{game_id}/trades (list pending). Add trade broadcast message builders
+        (trade_proposed, trade_accepted, trade_rejected) to game_broadcast.py and
+        broadcast trade events via WebSocket on acceptance. Register the trades router
+        in main.py.'
+      EstimatedEffort: L
+      Files:
+      - backend/app/api/routes/trades.py
+      - backend/app/services/game_broadcast.py
+      - backend/app/main.py
+      ID: task-empires-online-feat-trading-api-4
+      Title: Add Trade REST endpoints, broadcast messages, and router wiring
+    - AcceptanceCriteria:
+      - Unit tests cover propose, accept, reject and all validation rules in TradeService
+      - Integration tests cover all four endpoints with auth and error scenarios
+      - Test verifies atomic resource transfer on trade acceptance (both sides updated
+        correctly)
+      - All tests pass
+      AgentType: qa-engineer
+      Dependencies:
+      - task-empires-online-feat-trading-api-4
+      Description: Write unit tests for TradeService covering propose/accept/reject
+        flows and validation edge cases (insufficient resources, self-trade, invalid
+        status transitions). Write integration tests for all four REST endpoints verifying
+        auth, happy paths, and error cases. Ensure trade acceptance correctly updates
+        both parties' resource balances.
+      EstimatedEffort: M
+      Files:
+      - backend/app/tests/test_trade_service.py
+      - backend/app/tests/test_trade_endpoints.py
+      ID: task-empires-online-feat-trading-api-5
+      Title: Add unit and integration tests for trading system
+  - FeatureID: empires-online-feat-trading-ui
+    FeatureTitle: Trading UI
     Tasks:
     - AcceptanceCriteria:
-      - WebSocket message types are defined with discriminated union on message type
-        field
-      - WS URL builder constructs correct ws:// or wss:// URL from current API base
-      - Types compile with no TypeScript errors
+      - Trade-related types exported from frontend/src/types/index.ts
+      - API functions for propose, accept, reject, cancel, and list trades are implemented
+        in api.ts
+      - API functions handle error responses appropriately
       AgentType: frontend-engineer
       Dependencies: []
-      Description: Define WebSocket message types (game_state_update, player_joined,
-        round_changed, error) in the types file. Add a WebSocket URL builder to api.ts
-        that derives the WS endpoint from the existing API base URL.
+      Description: Define TypeScript types for trades (TradeOffer, TradeStatus, TradeResource)
+        in the shared types file. Add API functions in api.ts for proposing trades,
+        accepting/rejecting trades, cancelling trades, and fetching active trades.
       EstimatedEffort: S
       Files:
       - frontend/src/types/index.ts
       - frontend/src/services/api.ts
-      ID: task-empires-online-feat-websocket-frontend-1
-      Title: Add WebSocket types and connection utility
+      ID: task-empires-online-feat-trading-ui-1
+      Title: Add trading types and API service functions
     - AcceptanceCriteria:
-      - Hook connects to WS endpoint on mount and disconnects on unmount
-      - Exponential backoff reconnection works with delays 1s, 2s, 4s up to 30s max
-      - Hook returns current game state, connection status, and a manual reconnect
-        function
-      - On reconnect, hook fetches full game state via REST to ensure sync
+      - Hook processes trade_proposed and trade_resolved WebSocket message types
+      - Toast notifications display when trades are proposed, accepted, or rejected
+      - Trade state is updated reactively from WebSocket events
       AgentType: frontend-engineer
       Dependencies:
-      - task-empires-online-feat-websocket-frontend-1
-      Description: Create the useGameWebSocket custom hook that establishes a WebSocket
-        connection for a given gameId, parses incoming messages into typed GameState
-        updates, and implements exponential backoff reconnection (1s, 2s, 4s, max
-        30s). Include automatic state sync (full game state fetch) on reconnect and
-        expose connection status.
+      - task-empires-online-feat-trading-ui-1
+      Description: Update the useGameWebSocket hook to handle trade_proposed and trade_resolved
+        WebSocket events. On receiving these events, update local trade state and
+        trigger Toast notifications for trade proposed, accepted, and rejected outcomes.
       EstimatedEffort: M
       Files:
       - frontend/src/hooks/useGameWebSocket.ts
-      ID: task-empires-online-feat-websocket-frontend-2
-      Title: Implement useGameWebSocket hook with reconnection
+      ID: task-empires-online-feat-trading-ui-2
+      Title: Extend useGameWebSocket for trade events
     - AcceptanceCriteria:
-      - Game.tsx no longer uses setInterval for polling; state updates come from WebSocket
-      - GameLobby.tsx receives real-time player join notifications via WebSocket
-      - Connection status is visually indicated to the user (e.g., disconnected banner)
-      - Fallback to REST fetch on reconnect ensures no stale state
+      - TradePanel displays incoming and outgoing trades with correct action buttons
+      - ProposeTrade modal allows selecting resource amounts via sliders and submitting
+        a trade proposal
+      - Accept, Reject, Cancel, and Propose actions call the correct API endpoints
       AgentType: frontend-engineer
       Dependencies:
-      - task-empires-online-feat-websocket-frontend-2
-      Description: Replace the setInterval-based loadGameState polling in Game.tsx
-        with the useGameWebSocket hook. Integrate the hook into GameLobby.tsx for
-        real-time player join updates. Remove all setInterval/clearInterval polling
-        code and ensure game state is driven by WebSocket push updates.
+      - task-empires-online-feat-trading-ui-1
+      Description: Create the TradePanel component showing incoming trade offers with
+        Accept/Reject buttons and outgoing trades with a Cancel button. Create the
+        ProposeTrade modal with resource sliders for gold, people, and territory (offer
+        and request amounts). Wire both components to the API service functions.
       EstimatedEffort: M
       Files:
+      - frontend/src/components/TradePanel.tsx
+      - frontend/src/components/ProposeTrade.tsx
+      ID: task-empires-online-feat-trading-ui-3
+      Title: Build TradePanel and ProposeTrade components
+    - AcceptanceCriteria:
+      - TradePanel is visible on the Game page during active games
+      - Real-time trade updates from WebSocket are reflected in the TradePanel
+      - ProposeTrade modal opens and closes correctly from the Game page
+      - Trade notifications appear via the Toast system
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-empires-online-feat-trading-ui-2
+      - task-empires-online-feat-trading-ui-3
+      Description: Add the TradePanel component to Game.tsx and connect it with the
+        WebSocket trade state from useGameWebSocket. Ensure the ProposeTrade modal
+        can be opened from the game page and that trade updates flow through to the
+        panel in real time.
+      EstimatedEffort: S
+      Files:
       - frontend/src/pages/Game.tsx
-      - frontend/src/pages/GameLobby.tsx
-      ID: task-empires-online-feat-websocket-frontend-3
-      Title: Wire hook into Game and GameLobby, remove polling
-  - FeatureID: empires-online-feat-alembic-setup
-    FeatureTitle: Alembic Migration Setup
+      ID: task-empires-online-feat-trading-ui-4
+      Title: Integrate trading UI into Game page
+  - FeatureID: empires-online-feat-game-history
+    FeatureTitle: Game History & Player Stats Backend
     Tasks:
     - AcceptanceCriteria:
-      - backend/alembic.ini exists with valid Alembic configuration
-      - backend/alembic/env.py imports Base from app.core.database and uses DATABASE_URL
-        from app.core.config
-      - Running `alembic current` from the backend directory succeeds without errors
+      - Migration creates game_results table with all specified columns and foreign
+        keys
+      - GameResult model is importable and has relationships to Game and Player
+      - alembic upgrade head runs without errors
       AgentType: backend-engineer
       Dependencies: []
-      Description: Initialize Alembic in the backend directory. Create alembic.ini
-        with the database URL pointing to the application config. Set up alembic/env.py
-        to import the application's Base metadata and Settings for the database URL,
-        enabling autogenerate support.
+      Description: Create Alembic migration 003_add_game_results.py adding the game_results
+        table (id, game_id, winner_country_id, winner_player_id, duration_rounds,
+        finished_at, final_rankings JSON). Add corresponding GameResult SQLAlchemy
+        model to models.py and GameResult schema to schemas.py.
       EstimatedEffort: S
       Files:
-      - backend/alembic.ini
-      - backend/alembic/env.py
-      ID: task-empires-online-feat-alembic-setup-1
-      Title: Configure Alembic framework and alembic.ini/env.py
-    - AcceptanceCriteria:
-      - Game model in models.py includes stability_checked = Column(Boolean, default=False)
-      - backend/alembic/versions/001_add_stability_checked.py exists with upgrade()
-        adding the column and downgrade() removing it
-      - Running `alembic upgrade head` applies the migration successfully
-      AgentType: backend-engineer
-      Dependencies:
-      - task-empires-online-feat-alembic-setup-1
-      Description: Add the stability_checked boolean column (default False) to the
-        Game model in models.py. Generate the initial Alembic migration file that
-        adds this column to the games table. Ensure the migration has both upgrade
-        and downgrade paths.
-      EstimatedEffort: S
-      Files:
+      - backend/alembic/versions/003_add_game_results.py
       - backend/app/models/models.py
-      - backend/alembic/versions/001_add_stability_checked.py
-      ID: task-empires-online-feat-alembic-setup-2
-      Title: Add stability_checked column and create initial migration
+      - backend/app/schemas/schemas.py
+      ID: task-empires-online-feat-game-history-1
+      Title: Add game_results table migration and model
     - AcceptanceCriteria:
-      - init_db.py no longer calls Base.metadata.create_all()
-      - init_db.py runs alembic upgrade head programmatically on startup
-      - Existing seed data (countries, test user) is still created after migrations
-        run
+      - When a game reaches completed state, a game_results row is created with correct
+        winner and rankings
+      - Duration rounds and finished_at are accurately recorded
+      - final_rankings JSON contains placement and score for each player
       AgentType: backend-engineer
       Dependencies:
-      - task-empires-online-feat-alembic-setup-2
-      Description: Modify init_db.py to replace Base.metadata.create_all() with programmatic
-        Alembic upgrade to head on application startup. Import and invoke alembic.command.upgrade
-        so migrations run automatically when the app starts. Retain the existing seed
-        data logic.
-      EstimatedEffort: S
+      - task-empires-online-feat-game-history-1
+      Description: Modify game_service.py and game routes to detect terminal game
+        state (all players eliminated except winner or game_over flag) and automatically
+        persist a GameResult row. This should trigger at end-of-round transitions
+        when the game phase becomes 'completed'. Compute final_rankings JSON from
+        victory points at game end.
+      EstimatedEffort: M
       Files:
-      - backend/app/init_db.py
-      ID: task-empires-online-feat-alembic-setup-3
-      Title: Replace create_all with Alembic auto-migration on startup
-  Sprint: 1
-- Features:
-  - FeatureID: empires-online-feat-actions-stability
-    FeatureTitle: New Actions, Stability Check & Phase Transitions
+      - backend/app/services/game_service.py
+      - backend/app/api/routes/games.py
+      ID: task-empires-online-feat-game-history-2
+      Title: Auto-record game result on terminal state
+    - AcceptanceCriteria:
+      - GET /players/{player_id}/history returns list of past games with placement
+        and duration
+      - GET /leaderboard returns ranked list of players by win count with win_rate
+        and avg_placement
+      - Player schema includes total_games, wins, losses, win_rate fields computed
+        from game_results
+      AgentType: backend-engineer
+      Dependencies:
+      - task-empires-online-feat-game-history-1
+      Description: Add GET /players/{player_id}/history endpoint returning past games
+        with placement and stats from game_results. Add GET /leaderboard global endpoint
+        showing all-time win counts, win rates, and average placement. Expose total_games,
+        wins, losses, win_rate computed fields on the Player response schema.
+      EstimatedEffort: M
+      Files:
+      - backend/app/api/routes/players.py
+      - backend/app/api/routes/games.py
+      - backend/app/schemas/schemas.py
+      ID: task-empires-online-feat-game-history-3
+      Title: Add player history, leaderboard, and player stats endpoints
+  - FeatureID: empires-online-feat-stats-ui
+    FeatureTitle: Player Stats & Leaderboard UI
     Tasks:
     - AcceptanceCriteria:
-      - can_perform_action returns True for recruit_people when gold >= 2 and acquire_territory
-        when gold >= 3
-      - perform_action correctly deducts gold and increments people/territories for
-        the new actions
-      - run_stability_check deducts gold = (revolters - supporters) when revolters
-        > supporters, with gold floored at 0
-      - run_stability_check returns no-op result when supporters >= revolters
-      AgentType: backend-engineer
+      - PlayerStats, GameHistoryEntry, and LeaderboardEntry types are defined in types/index.ts
+      - API methods fetchPlayerHistory(playerId) and fetchLeaderboard() exist in api.ts
+        following existing patterns
+      - API methods use the existing axios instance with auth interceptor
+      AgentType: frontend-engineer
       Dependencies: []
-      Description: Extend GameLogic with recruit_people (cost 2 gold, +1 person) and
-        acquire_territory (cost 3 gold, +1 territory) actions in both can_perform_action()
-        and perform_action(). Add run_stability_check() static method that deducts
-        gold equal to (revolters - supporters) when revolters > supporters, flooring
-        gold at 0.
+      Description: Extend frontend/src/types/index.ts with interfaces for PlayerStats,
+        GameHistoryEntry, and LeaderboardEntry. Add API methods to frontend/src/services/api.ts
+        following the existing playersAPI/gamesAPI pattern to fetch from /players/{id}/history
+        and /leaderboard endpoints.
       EstimatedEffort: S
       Files:
-      - backend/app/services/game_logic.py
-      ID: task-empires-online-feat-actions-stability-1
-      Title: Add recruit_people, acquire_territory actions and stability check to
-        GameLogic
+      - frontend/src/types/index.ts
+      - frontend/src/services/api.ts
+      ID: task-empires-online-feat-stats-ui-1
+      Title: Add types and API service methods for stats and leaderboard
     - AcceptanceCriteria:
-      - POST /{game_id}/countries/{id}/end-actions sets actions_completed=True and
-        auto-transitions when all players complete
-      - GET /{game_id}/round-summary returns per-player changes for the current round
-      - Stability check runs for all players during phase transition before advancing
-        to next round
-      - Phase transitions correctly reset development_completed/actions_completed
-        flags
+      - 'PlayerStats page renders all required stats: games played, wins, losses,
+        win rate %, average placement'
+      - PlayerStats page shows a table of recent games with date, duration (rounds),
+        and placement columns
+      - GlobalLeaderboard component displays top 10 players ranked by win rate with
+        minimum 3 games filter
+      - Components handle loading and error states following existing patterns
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-empires-online-feat-stats-ui-1
+      Description: Create the PlayerStats page showing games played, wins, losses,
+        win rate, average placement, and a recent games table with date, duration,
+        and placement. Create the GlobalLeaderboard component showing top 10 players
+        ranked by win rate (minimum 3 games). Follow existing page/component patterns
+        with CSS classes from App.css.
+      EstimatedEffort: M
+      Files:
+      - frontend/src/pages/PlayerStats.tsx
+      - frontend/src/components/GlobalLeaderboard.tsx
+      - frontend/src/App.css
+      ID: task-empires-online-feat-stats-ui-2
+      Title: Build PlayerStats page and GlobalLeaderboard component
+    - AcceptanceCriteria:
+      - /stats route is registered in App.tsx as a protected route rendering PlayerStats
+      - GameLobby page has a History tab/link that navigates to the current user's
+        stats page
+      - Navigation between lobby and stats works correctly with browser back/forward
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-empires-online-feat-stats-ui-2
+      Description: Register the /stats route in App.tsx as a protected route pointing
+        to PlayerStats. Add a History tab/link in the GameLobby page that navigates
+        to PlayerStats for the current authenticated user. Optionally embed the GlobalLeaderboard
+        on the lobby page.
+      EstimatedEffort: S
+      Files:
+      - frontend/src/App.tsx
+      - frontend/src/pages/GameLobby.tsx
+      ID: task-empires-online-feat-stats-ui-3
+      Title: Add /stats route and History tab to GameLobby
+  - FeatureID: empires-online-feat-spectator-backend
+    FeatureTitle: Spectator Mode Backend
+    Tasks:
+    - AcceptanceCriteria:
+      - ws_manager maintains a separate spectators set per game room
+      - Spectator connections receive full game state on join and on every state-change
+        broadcast
+      - Action messages from spectator connections are rejected with 403 error
+      - spectator_count is accurately tracked per room
+      AgentType: backend-engineer
+      Dependencies: []
+      Description: Add a separate spectators set per room in ws_manager.py. Implement
+        methods for adding/removing spectator connections, broadcasting state to spectators
+        alongside players, and tracking spectator_count. Add is_spectator flag to
+        WebSocket connection context so the manager can reject action messages from
+        spectators with 403.
+      EstimatedEffort: M
+      Files:
+      - backend/app/services/ws_manager.py
+      - backend/app/api/routes/ws.py
+      ID: task-empires-online-feat-spectator-backend-1
+      Title: Extend WebSocket manager with spectator support
+    - AcceptanceCriteria:
+      - POST /games/{game_id}/spectate returns a valid spectator token
+      - GameState schema includes spectator_count field
+      - GET /games/ returns spectator_count and supports games_with_spectators=true
+        filter
       AgentType: backend-engineer
       Dependencies:
-      - task-empires-online-feat-actions-stability-1
-      Description: Add end-actions endpoint that marks a player's actions_completed=True
-        and triggers automatic phase transition to next round (via next_round logic
-        with stability check) when all players are done. Add round summary endpoint
-        returning per-player changes from GameHistory. Update schemas.py with RoundSummary
-        response schema. Integrate stability check into the round transition flow.
+      - task-empires-online-feat-spectator-backend-1
+      Description: Implement POST /games/{game_id}/spectate endpoint that returns
+        a spectator JWT or session token. Add spectator_count field to the GameState
+        schema. Update GET /games/ to include spectator_count and support filtering
+        by games_with_spectators=true query parameter.
       EstimatedEffort: M
       Files:
       - backend/app/api/routes/games.py
       - backend/app/schemas/schemas.py
-      ID: task-empires-online-feat-actions-stability-2
-      Title: Add end-actions endpoint, round summary, and auto phase transitions
+      ID: task-empires-online-feat-spectator-backend-2
+      Title: Add spectator join endpoint and schema updates
     - AcceptanceCriteria:
-      - WebSocket message broadcast after each perform_action call with updated game
-        state
-      - WebSocket message broadcast on phase transition (actions→development or actions→completed)
-      - Broadcasts include game_id and updated player states so clients can refresh
-        UI
-      AgentType: backend-engineer
+      - Unit tests cover spectator add/remove, broadcast, and action rejection in
+        ws_manager
+      - Integration tests cover POST /spectate, GET /games with spectator filter,
+        and WebSocket spectator flow
+      - All tests pass
+      AgentType: qa-engineer
       Dependencies:
-      - task-empires-online-feat-actions-stability-2
-      Description: Integrate WebSocket broadcasts into perform_action, end-actions,
-        and phase transition flows in games.py. After each action and phase change,
-        broadcast the updated game state to all connected clients in the game room
-        using the existing WebSocket manager.
+      - task-empires-online-feat-spectator-backend-1
+      - task-empires-online-feat-spectator-backend-2
+      Description: Write unit tests for spectator WebSocket connection handling, action
+        rejection, and spectator count tracking. Write integration tests for the spectate
+        endpoint, spectator token validation, game listing with spectator filter,
+        and end-to-end spectator broadcast flow.
+      EstimatedEffort: M
+      Files:
+      - backend/tests/test_ws_manager.py
+      - backend/tests/test_games.py
+      ID: task-empires-online-feat-spectator-backend-3
+      Title: Add tests for spectator mode
+  - FeatureID: empires-online-feat-spectator-ui
+    FeatureTitle: Spectator Mode UI
+    Tasks:
+    - AcceptanceCriteria:
+      - GameState type includes spectator_count field
+      - gamesAPI.spectateGame(gameId) calls POST /games/{gameId}/spectate and returns
+        spectator token
+      - useGameWebSocket supports isSpectator option that prevents sending action
+        messages
+      - /spectate/:gameId route is registered in App.tsx as a protected route
+      AgentType: frontend-engineer
+      Dependencies: []
+      Description: Extend TypeScript types with spectator-related fields (spectator_count
+        on GameState, spectator token response). Add spectateGame API method to api.ts
+        that calls POST /games/{gameId}/spectate to get a spectator token. Update
+        useGameWebSocket hook to accept an optional isSpectator flag and connect with
+        spectator token, rejecting any outbound action messages in read-only mode.
+        Add /spectate/:gameId route in App.tsx.
+      EstimatedEffort: M
+      Files:
+      - frontend/src/types/index.ts
+      - frontend/src/services/api.ts
+      - frontend/src/hooks/useGameWebSocket.ts
+      - frontend/src/App.tsx
+      ID: task-empires-online-feat-spectator-ui-1
+      Title: Add spectator types, API service, and routing
+    - AcceptanceCriteria:
+      - SpectatorView renders all countries' resources, round info, phase, and leaderboard
+      - No action buttons (start, develop, perform action, next round) are clickable
+      - Spectator count badge displays in the game header
+      - Page updates in real-time via WebSocket without polling
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-empires-online-feat-spectator-ui-1
+      Description: Create SpectatorView.tsx as a read-only variant of Game.tsx. Display
+        full game state including all countries' resources, current round, action
+        phase, stability state, and a leaderboard panel. All action buttons must be
+        disabled or hidden. Show a spectator count badge in the game header. Use the
+        useGameWebSocket hook in spectator mode to receive real-time updates.
+      EstimatedEffort: L
+      Files:
+      - frontend/src/pages/SpectatorView.tsx
+      ID: task-empires-online-feat-spectator-ui-2
+      Title: Build SpectatorView page
+    - AcceptanceCriteria:
+      - Spectate button appears only on in-progress game cards
+      - Clicking Spectate obtains token and navigates to /spectate/:gameId
+      - Button shows loading state during API call and handles errors gracefully
+      AgentType: frontend-engineer
+      Dependencies:
+      - task-empires-online-feat-spectator-ui-1
+      Description: Update GameLobby.tsx to show a Spectate button on game cards for
+        games that are in progress (not in lobby or finished state). Clicking the
+        button calls the spectateGame API to obtain a spectator token, stores it,
+        and navigates to /spectate/:gameId. Optionally display spectator count on
+        lobby cards if available.
       EstimatedEffort: S
       Files:
-      - backend/app/api/routes/games.py
-      ID: task-empires-online-feat-actions-stability-3
-      Title: Broadcast WebSocket state updates after actions and phase transitions
-  - FeatureID: empires-online-feat-ui-polish
-    FeatureTitle: Mobile Responsive UI & Toast Notifications
-    Tasks:
-    - AcceptanceCriteria:
-      - Toast component renders success, error, and info variants with auto-dismiss
-        after timeout
-      - ToastProvider is wrapped in App.tsx and useToast hook is consumable from any
-        component
-      - Game action errors and confirmations display as toast notifications instead
-        of inline error divs
-      - Toast styles are defined in App.css and render correctly on mobile (≤768px)
-      AgentType: frontend-engineer
-      Dependencies: []
-      Description: Create a Toast component and ToastProvider context for displaying
-        action confirmations, errors, and resource change notifications. Wire the
-        provider into App.tsx and replace existing inline error divs in Game.tsx with
-        toast calls.
-      EstimatedEffort: M
-      Files:
-      - frontend/src/components/Toast.tsx
-      - frontend/src/App.tsx
-      - frontend/src/App.css
-      - frontend/src/pages/Game.tsx
-      ID: task-empires-online-feat-ui-polish-1
-      Title: Implement toast notification system
-    - AcceptanceCriteria:
-      - All page layouts adapt to single-column at ≤768px with no horizontal overflow
-      - No horizontal scrollbar appears at 375px viewport width
-      - Navbar, game grid, action panel, and player status sections are fully usable
-        on mobile
-      AgentType: frontend-engineer
-      Dependencies: []
-      Description: Enhance CSS media queries for full mobile-responsive layout at
-        ≤768px breakpoint. Ensure no horizontal scrolling at 375px viewport width
-        by auditing grid layouts, card widths, and navbar. Add responsive styles for
-        ActionPanel and player status sections.
-      EstimatedEffort: M
-      Files:
-      - frontend/src/App.css
-      - frontend/src/components/Navbar.tsx
-      ID: task-empires-online-feat-ui-polish-2
-      Title: Add mobile-responsive layout and no-scroll guarantee
-    - AcceptanceCriteria:
-      - Recruit people and acquire territory buttons appear in ActionPanel and trigger
-        corresponding game actions
-      - Round summary displays per-player resource, territory, and population deltas
-        after each round transition
-      - Action success and failure feedback is shown via toast notifications
-      - New UI elements are responsive and usable at ≤768px
-      AgentType: frontend-engineer
-      Dependencies:
-      - task-empires-online-feat-ui-polish-1
-      Description: Add recruit people and acquire territory action buttons to the
-        ActionPanel section in Game.tsx. Implement a round summary display component
-        that shows per-player changes (resources, territory, population) between rounds.
-        Wire both to toast notifications for feedback.
-      EstimatedEffort: M
-      Files:
-      - frontend/src/pages/Game.tsx
-      - frontend/src/App.css
-      ID: task-empires-online-feat-ui-polish-3
-      Title: Add recruit/acquire buttons and round summary display
-  - FeatureID: empires-online-feat-backend-tests
-    FeatureTitle: Backend Integration Tests & Coverage
-    Tasks:
-    - AcceptanceCriteria:
-      - test_game_logic.py includes passing tests for recruit_people, acquire_territory,
-        run_stability_check, and auto phase transitions
-      - test_ws_endpoint.py includes passing tests for game state broadcasting and
-        client reconnection
-      - All new unit tests pass with pytest
-      AgentType: qa-engineer
-      Dependencies: []
-      Description: Extend test_game_logic.py with unit tests covering recruit_people,
-        acquire_territory, stability check, and auto phase transitions. Extend test_ws_endpoint.py
-        with tests for game state broadcasting and reconnection handling.
-      EstimatedEffort: M
-      Files:
-      - backend/app/tests/test_game_logic.py
-      - backend/app/tests/test_ws_endpoint.py
-      ID: task-empires-online-feat-backend-tests-1
-      Title: Unit tests for game logic and WebSocket endpoints
-    - AcceptanceCriteria:
-      - test_integration.py includes passing tests for round summary endpoint, end-actions
-        endpoint, and full game lifecycle
-      - pytest --cov reports ≥80% backend test coverage
-      - All integration tests pass against the test database
-      AgentType: qa-engineer
-      Dependencies:
-      - task-empires-online-feat-backend-tests-1
-      Description: Add integration tests in test_integration.py covering the round
-        summary endpoint, end-actions endpoint, and a full game lifecycle scenario.
-        Configure pytest-cov and verify backend test coverage meets the ≥80% target.
-      EstimatedEffort: M
-      Files:
-      - backend/app/tests/test_integration.py
-      ID: task-empires-online-feat-backend-tests-2
-      Title: Integration tests and coverage target
-  Sprint: 2
+      - frontend/src/pages/GameLobby.tsx
+      ID: task-empires-online-feat-spectator-ui-3
+      Title: Add Spectate button to game lobby
+  Sprint: 3
