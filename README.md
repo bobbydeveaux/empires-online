@@ -141,6 +141,7 @@ Instability Penalty = If revolters > supporters, multiply total by 0.5
 - `POST /api/games/{id}/next-round` - Manually advance round (creator only)
 - `GET /api/games/{id}/round-summary` - Get per-player round summary
 - `GET /api/games/{id}/leaderboard` - Get current standings
+- `POST /api/games/{id}/spectate` - Get spectator token for watching an in-progress game
 
 ### Players
 - `GET /api/players/countries` - List available countries
@@ -206,7 +207,7 @@ docker-compose down
 - [ ] Implement trading between players
 - [ ] Add game history and statistics
 - [ ] Create comprehensive API documentation
-- [ ] Implement game spectator mode
+- [x] Spectator mode: spectate button in lobby, read-only spectator view with live updates
 
 ### Phase 3 - Polish (📋 Future)
 - [ ] Add AI opponents for single-player practice
