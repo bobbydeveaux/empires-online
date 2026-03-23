@@ -207,7 +207,7 @@ docker-compose down
 - [ ] Implement trading between players
 - [x] Auto-record game results on completion (GameResult with winner, rankings, duration)
 - [ ] Create comprehensive API documentation
-- [x] Spectator mode: spectate button in lobby, read-only spectator view with live updates
+- [x] Implement game spectator mode (backend: spectator WebSocket connections, POST /spectate endpoint, spectator_count in game listings; frontend: spectate button in lobby, read-only spectator view with live updates)
 
 ### Phase 3 - Polish (📋 Future)
 - [ ] Add AI opponents for single-player practice

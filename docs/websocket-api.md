@@ -34,8 +34,8 @@ Invalid or missing tokens result in a close with code `1008` (Policy Violation).
 6. On disconnect, a `player_left` message is broadcast
 
 ### Spectator connection
-1. Client connects with a valid JWT token to the `/spectate` endpoint
-2. Server validates the token and looks up the user
+1. Client obtains a spectator token via `POST /api/games/{game_id}/spectate`
+2. Client connects with the spectator token to the `/spectate` endpoint (contains `is_spectator: true` claim)
 3. Connection is accepted and added to the game room as a spectator
 4. A `spectator_joined` message (with `spectator_count`) is broadcast to the room
 5. Spectator receives all game state broadcasts
@@ -219,7 +219,7 @@ The spectator token is a standard JWT with an additional `is_spectator: true` cl
 
 ## Architecture
 
-- **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms, with separate tracking for players and spectators. Supports connect, disconnect, join_room, join_room_as_spectator, leave_room, broadcast_to_room (reaches both players and spectators), and spectator_count tracking. Includes PostgreSQL NOTIFY/LISTEN support for cross-process event fanout.
+- **ConnectionManager** (`backend/app/services/ws_manager.py`): Manages active connections organized by game rooms, with separate tracking for players and spectators. Supports connect, disconnect, connect_spectator, disconnect_spectator, join_room, join_room_as_spectator, leave_room, broadcast_to_room (reaches both players and spectators), is_spectator, and get_spectator_count. Includes PostgreSQL NOTIFY/LISTEN support for cross-process event fanout.
 - **GameBroadcast** (`backend/app/services/game_broadcast.py`): Provides message builders for each game event type (including `game_state_update` with full game state) and an async `broadcast_event()` function used as a FastAPI `BackgroundTask`.
 - **WebSocket Route** (`backend/app/api/routes/ws.py`): Handles the `/ws/{game_id}` player endpoint and `/ws/{game_id}/spectate` spectator endpoint. Both require JWT validation. Spectators can only send `ping`; all other messages are rejected with a 403 error.
 - **Game REST Routes** (`backend/app/api/routes/games.py`): State-changing endpoints (join, start, develop, actions, end-actions, next-round) broadcast game events via `BackgroundTasks` after committing database changes. The end-actions endpoint triggers auto phase transitions when all players complete.
