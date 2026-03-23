@@ -161,7 +161,6 @@ def round_summary_message(
     }
 
 
-
 def trade_proposed_message(
     game_id: int,
     trade: Dict[str, Any],

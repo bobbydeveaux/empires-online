@@ -141,11 +141,14 @@ Instability Penalty = If revolters > supporters, multiply total by 0.5
 - `POST /api/games/{id}/next-round` - Manually advance round (creator only)
 - `GET /api/games/{id}/round-summary` - Get per-player round summary
 - `GET /api/games/{id}/leaderboard` - Get current standings
-- `GET /api/games/{id}/trades` - List pending trades
-- `POST /api/games/{id}/trades` - Propose a trade
-- `POST /api/games/{id}/trades/{trade_id}/accept` - Accept a trade
-- `POST /api/games/{id}/trades/{trade_id}/reject` - Reject a trade
+- `POST /api/games/{id}/spectate` - Get spectator token for watching an in-progress game
+
+### Trading
+- `POST /api/games/{id}/trades` - Propose a trade (offer/request resources)
+- `POST /api/games/{id}/trades/{trade_id}/accept` - Accept a pending trade (receiver only)
+- `POST /api/games/{id}/trades/{trade_id}/reject` - Reject a pending trade (receiver only)
 - `POST /api/games/{id}/trades/{trade_id}/cancel` - Cancel a trade
+- `GET /api/games/{id}/trades` - List pending trades for a game
 
 ### Players
 - `GET /api/players/countries` - List available countries
@@ -208,10 +211,11 @@ docker-compose down
 - [x] Stability check at round end (revolters > supporters → gold loss)
 - [x] Round summary endpoint with per-player action history
 - [x] New actions: recruit_people (2 gold), acquire_territory (3 gold)
-- [x] Implement trading between players (UI complete; backend API in progress)
+- [x] Implement trading between players (propose/accept/reject with atomic resource transfer)
 - [x] Auto-record game results on completion (GameResult with winner, rankings, duration)
+- [ ] Add game history and statistics
 - [ ] Create comprehensive API documentation
-- [ ] Implement game spectator mode
+- [x] Implement game spectator mode (backend: spectator WebSocket connections, POST /spectate endpoint, spectator_count in game listings; frontend: spectate button in lobby, read-only spectator view with live updates)
 
 ### Phase 3 - Polish (📋 Future)
 - [ ] Add AI opponents for single-player practice

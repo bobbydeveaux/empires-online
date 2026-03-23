@@ -152,6 +152,11 @@ export const gamesAPI = {
     const response = await api.post(`/games/${gameId}/trades/${tradeId}/cancel`);
     return response.data;
   },
+
+  spectateGame: async (gameId: number): Promise<{ spectator_token: string; game_id: number }> => {
+    const response = await api.post(`/games/${gameId}/spectate`);
+    return response.data;
+  }
 };
 
 // WebSocket URL builder

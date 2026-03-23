@@ -13,6 +13,8 @@ interface UseGameWebSocketOptions {
   token: string | null;
   /** Called when a WebSocket message is received. */
   onMessage?: (message: WsServerMessage) => void;
+  /** When true, connects in read-only spectator mode (no outbound action messages). */
+  isSpectator?: boolean;
 }
 
 interface UseGameWebSocketReturn {

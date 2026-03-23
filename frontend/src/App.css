@@ -539,3 +539,26 @@ code {
     margin: 8px 0;
   }
 }
+
+/* Spectator mode badges */
+.spectator-badge {
+  display: inline-block;
+  background-color: #7c4dff;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.spectator-count-badge {
+  display: inline-block;
+  background-color: #e8eaf6;
+  color: #3f51b5;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
