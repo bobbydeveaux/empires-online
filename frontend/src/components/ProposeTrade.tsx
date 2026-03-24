@@ -1,21 +1,25 @@
 import React, { useState } from 'react';
-import { SpawnedCountryWithDetails, TradePropose } from '../types';
+import { SpawnedCountryWithDetails } from '../types';
+import { gamesAPI } from '../services/api';
 
 interface ProposeTradeProps {
+  gameId: number;
   currentPlayer: SpawnedCountryWithDetails;
-  otherPlayers: SpawnedCountryWithDetails[];
-  onPropose: (trade: TradePropose) => void;
+  players: SpawnedCountryWithDetails[];
   onClose: () => void;
-  loading: boolean;
+  onTradeProposed: () => void;
+  onToast: (message: string, type: string) => void;
 }
 
 const ProposeTrade: React.FC<ProposeTradeProps> = ({
+  gameId,
   currentPlayer,
-  otherPlayers,
-  onPropose,
+  players,
   onClose,
-  loading,
+  onTradeProposed,
+  onToast,
 }) => {
+  const otherPlayers = players.filter(p => p.id !== currentPlayer.id);
   const [receiverId, setReceiverId] = useState<number>(otherPlayers[0]?.id ?? 0);
   const [offerGold, setOfferGold] = useState(0);
   const [offerPeople, setOfferPeople] = useState(0);
@@ -23,6 +27,7 @@ const ProposeTrade: React.FC<ProposeTradeProps> = ({
   const [requestGold, setRequestGold] = useState(0);
   const [requestPeople, setRequestPeople] = useState(0);
   const [requestTerritory, setRequestTerritory] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   const hasOffer = offerGold > 0 || offerPeople > 0 || offerTerritory > 0;
   const hasRequest = requestGold > 0 || requestPeople > 0 || requestTerritory > 0;
@@ -30,19 +35,30 @@ const ProposeTrade: React.FC<ProposeTradeProps> = ({
     offerGold <= currentPlayer.gold &&
     offerPeople <= currentPlayer.people &&
     offerTerritory <= currentPlayer.territories;
-  const isValid = receiverId > 0 && hasOffer && hasRequest && canAfford;
+  const isValid = receiverId > 0 && (hasOffer || hasRequest) && canAfford;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!isValid) return;
-    onPropose({
-      receiver_country_id: receiverId,
-      offer_gold: offerGold,
-      offer_people: offerPeople,
-      offer_territory: offerTerritory,
-      request_gold: requestGold,
-      request_people: requestPeople,
-      request_territory: requestTerritory,
-    });
+    setLoading(true);
+    try {
+      await gamesAPI.proposeTrade(gameId, {
+        receiver_country_id: receiverId,
+        offer_gold: offerGold,
+        offer_people: offerPeople,
+        offer_territory: offerTerritory,
+        request_gold: requestGold,
+        request_people: requestPeople,
+        request_territory: requestTerritory,
+      });
+      onToast('Trade proposed!', 'success');
+      onTradeProposed();
+      onClose();
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail ?? 'Failed to propose trade';
+      onToast(detail, 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const sliderRow = (
@@ -118,7 +134,7 @@ const ProposeTrade: React.FC<ProposeTradeProps> = ({
             onClick={handleSubmit}
             disabled={loading || !isValid}
           >
-            {loading ? 'Proposing...' : 'Propose Trade'}
+            {loading ? 'Proposing...' : 'Send Proposal'}
           </button>
           <button className="btn-secondary" onClick={onClose} disabled={loading}>
             Cancel
